@@ -1,1 +1,1 @@
-# file-sync
+# files-sync
