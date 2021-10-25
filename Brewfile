@@ -1,0 +1,2 @@
+# Casks
+cask "powershell"
