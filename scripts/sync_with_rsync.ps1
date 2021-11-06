@@ -40,6 +40,7 @@ try {
 } finally {
     Write-Host " "
     List-StoredWarnings
-    Write-Host "Log file: $logFile"
+    Write-Host "Configuration file: '$SettingsFile'"
+    Write-Host "Log file: '$logFile'"
     Write-Host " "
 }

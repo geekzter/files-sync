@@ -3,6 +3,27 @@ function List-StoredWarnings() {
     $script:messages | Write-Warning
 }
 
+function Open-Firewall (
+    [parameter(Mandatory=$true)][string]$StorageAccountName,   
+    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
+    [parameter(Mandatory=$true)][string]$SubscriptionId
+) {
+    # Add firewall rule on storage account
+    $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
+    Write-Debug "Public IP address is $ipAddress"
+    Write-Verbose "Adding rule for Storage Account $StorageAccountName to allow ip address $ipAddress..."
+    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
+        Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
+    } else {
+        az storage account network-rule add --account-name $StorageAccountName `
+                                            -g $ResourceGroupName `
+                                            --ip-address $ipAddress `
+                                            --subscription $SubscriptionId `
+                                            -o none
+        Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+    }
+}
+
 function StoreAndWrite-Warning (
     [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message
 ) {
@@ -49,7 +70,7 @@ function Sync-Directories (
     }
 
     $rsyncCommand = "rsync $rsyncArgs `"$Source`" `"$Target`""
-    Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Yellow
+    Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
     Write-Output $rsyncCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     Invoke-Expression $rsyncCommand
     $exitCode = $LASTEXITCODE

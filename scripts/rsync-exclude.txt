@@ -3,3 +3,4 @@
 *.icloud
 *.tmp
 tmp*
+Temp*
