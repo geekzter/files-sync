@@ -1,2 +1,2 @@
-# Casks
 cask "powershell"
+brew "azcopy"
