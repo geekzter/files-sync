@@ -22,7 +22,8 @@ $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 try {
     foreach ($directoryPair in $settings.syncPairs) {
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
-        Sync-DirectoryToAzure -Source $directoryPair.source -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
+        Set-Variable -Name pattern -Value $directoryPair.pattern -ErrorAction SilentlyContinue
+        Sync-Directories -Source $directoryPair.source -Pattern $pattern -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
     }
 } finally {
     Write-Host " "

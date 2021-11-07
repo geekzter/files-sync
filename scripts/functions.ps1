@@ -101,32 +101,52 @@ function StoreAndWrite-Warning (
 
 function Sync-Directories (
     [parameter(Mandatory=$true)][string]$Source,   
+    [parameter(Mandatory=$false)][string]$Pattern,   
     [parameter(Mandatory=$true)][string]$Target,   
     [parameter(Mandatory=$false)][switch]$Delete=$false,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
-
     if (!(Get-Command rsync -ErrorAction SilentlyContinue)) {
         Write-Output "rsync nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
-    if (-not (Test-Path $Source)) {
-        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
-        return
+    if (!(Get-Command bash -ErrorAction SilentlyContinue)) {
+        Write-Output "This script uses bash to invoke rsync and bash was not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        exit
     }
+    
+    if ($Source -notmatch '\*') {
+        if (!(Get-ChildItem $Source -Force -ErrorAction SilentlyContinue)) {
+            Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+            return
+        }
+        $sourceExpanded = ((Resolve-Path $Source).Path + [IO.Path]::DirectorySeparatorChar)
+    } else {
+        $sourceExpanded = $Source
+    }
+    if ($sourceExpanded -match "\s") {
+        $sourceExpanded = "'${sourceExpanded}'"
+        Write-Debug "`$sourceExpanded: $sourceExpanded"
+    }
+    # Write-Verbose "Checking whether offline files exist in '$Source'..."
+    # if (!$Pattern -and (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Force -ErrorAction SilentlyContinue)) {
+    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+    # }
+
     if (-not (Test-Path $Target)) {
         Write-Output "Target '$Target' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
         return
     }
-    if (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Hidden) {
-        Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+    $targetExpanded = (Resolve-Path $Target).Path 
+    if ($targetExpanded -match "\s") {
+        $targetExpanded = "'${targetExpanded}'"
     }
-    if (!$Source.EndsWith([IO.Path]::DirectorySeparatorChar)) {
-        $Source += [IO.Path]::DirectorySeparatorChar # Tell rsync to treat source as directory
-    }
-
+    
     $rsyncArgs = "-auvvz --modify-window=1 --exclude-from=$(Join-Path $PSScriptRoot exclude.txt)"
+    if ($Pattern) {
+        $rsyncArgs += " --include=$Pattern --exclude=*"
+    }
     if ($Delete) {
         $rsyncArgs += " --delete"
     }
@@ -137,13 +157,18 @@ function Sync-Directories (
         $rsyncArgs += " --log-file=$LogFile"
     }
 
-    $rsyncCommand = "rsync $rsyncArgs `"$Source`" `"$Target`""
-    Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+    $rsyncCommand = "rsync $rsyncArgs $sourceExpanded $targetExpanded"
+    Write-Output "`nSync $sourceExpanded -> $targetExpanded" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
     Write-Output $rsyncCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
-    Invoke-Expression $rsyncCommand
+    bash -c "${rsyncCommand}" # Use bash to support certain wildcards e.g. .??*
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
-        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        switch ($exitCode) {
+            23 {
+                Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+            }
+        }
+        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
         exit $exitCode
     }
     Write-Host " "
@@ -157,9 +182,7 @@ function Sync-DirectoryToAzure (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     # Redirect temporary files to the OS default location, if not already redirected
-    $env:AZCOPY_LOG_LOCATION ??= $env:TEMP
-    $env:AZCOPY_LOG_LOCATION ??= $env:TMP
-    $env:AZCOPY_LOG_LOCATION ??= $env:TMPDIR
+    $env:AZCOPY_LOG_LOCATION ??= $env:TEMP ?? $env:TMP ?? $env:TMPDIR
 
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
         Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
@@ -173,9 +196,10 @@ function Sync-DirectoryToAzure (
         Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
         return
     }
-    if (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Hidden) {
-        Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
-    }
+    # Write-Verbose "Checking whether offline files exist in '$Source'..."
+    # if (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Hidden) {
+    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+    # }
 
     $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
     $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
@@ -186,7 +210,7 @@ function Sync-DirectoryToAzure (
         $azcopyArgs += " --dry-run"
     }
 
-    $azcopyCommand = "azcopy sync `"$Source`" `"$Target`" $azcopyArgs"
+    $azcopyCommand = "azcopy sync '$Source' '$Target' $azcopyArgs"
     Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
     Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     Invoke-Expression $azcopyCommand #| Tee-Object -FilePath $LogFile -Append
