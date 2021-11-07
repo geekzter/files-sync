@@ -9,7 +9,7 @@
 param ( 
     [parameter(Mandatory=$true)][string]$Name,
     [parameter(Mandatory=$true)][string]$ResourceGroup,
-    [parameter(Mandatory=$true)][string]$Location,
+    [parameter(Mandatory=$false)][string]$Location="westeurope",
     [parameter(Mandatory=$false)][string[]]$Container,
     [parameter(Mandatory=$false)][string]$SubscriptionId=$env:ARM_SUBSCRIPTION_ID,
     [parameter(Mandatory=$false)][int]$RetentionDays=30
@@ -83,7 +83,7 @@ foreach ($cont in $Container) {
                                 --resource-group $ResourceGroup `
                                 --subscription $SubscriptionId `
                                 -o none
-    Write-Verbose "Created container '$cont' in storage account '$Name'..."
+    Write-Information "Created container '$cont' in storage account '$Name'..."
 }
 
 # Get urls to storage containers
