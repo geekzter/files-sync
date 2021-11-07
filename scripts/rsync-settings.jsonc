@@ -1,13 +1,9 @@
 {
     "syncPairs" : [
         {
-            "source": "/Volumes/External1/A",
-            "target": "/Volumes/External2/B",
+            "source": "~/.??*",
+            "target": "/Volumes/External/Config",
             "delete": false
-        },
-        {
-            "source": "/Volumes/External1/C",
-            "target": "/Volumes/External2/D"
         }
     ]
 }
