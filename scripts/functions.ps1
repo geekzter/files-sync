@@ -57,7 +57,8 @@ function Open-Firewall (
 }
 
 function Login-Az (
-    [parameter(Mandatory=$true)][string]$TenantId
+    [parameter(Mandatory=$false)][string]$TenantId,
+    [parameter(Mandatory=$false)][switch]$SkipAzCopy
 ) {
     # Are we logged into the wrong tenant?
     Invoke-Command -ScriptBlock {
@@ -86,11 +87,21 @@ function Login-Az (
     }
     $login = ($loginError -or $userError)
     if ($login) {
-        az login -t $TenantId -o none
+        if ($TenantId) {
+            az login -t $TenantId -o none
+        } else {
+            az login -o none
+        }
     }
 
-    # There's no way to check whether we have a session, always (re-)authenticate
-    azcopy login --tenant-id $tenantId
+    if (!$SkipAzCopy) {
+        # There's no way to check whether we have a session, always (re-)authenticate
+        if ($TenantId) {
+            azcopy login --tenant-id $tenantId
+        } else {
+            azcopy login
+        }
+    }
 }
 function StoreAndWrite-Warning (
     [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message

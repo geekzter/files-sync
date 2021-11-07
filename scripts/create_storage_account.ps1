@@ -1,9 +1,9 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS 
-    Syncs a pre-configured list of directory pairs
+    Creates a storage account prepared for sync
 .DESCRIPTION 
-    Update rsync-settings.jsonc os use the SYNC_SETTINGS_FILE environment variable to point to a settings file in an alternate location
+    Creates a storage account configured with: soft delete, firewall opened only to client ip address, and the 'Data Contributor' role configured for currently logged on user/principal
 #>
 #Requires -Version 7
 param ( 
@@ -19,6 +19,8 @@ Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
+Login-Az -SkipAzCopy
+
 if ($Subscription) {
     az account set -s $SubscriptionId
 } else {
@@ -32,7 +34,7 @@ $tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=$
 # Create or update resource group
 Write-Verbose "Creating resource group '$ResourceGroup'..."
 az group create -n $Name -g $ResourceGroup -l $Location --subscription $SubscriptionId --tags $tags --query id -o tsv | Set-Variable resourceGroupId
-Write-Information "Created/updated resource group $resourceGroupId"                        
+Write-Host "Created/updated resource group $resourceGroupId"                        
 
 # Assign ourselves data plane access
 $role = "Storage Blob Data Contributor"
@@ -56,7 +58,7 @@ az storage account create -n $Name -g $ResourceGroup -l $Location --subscription
                           --sku Standard_RAGRS `
                           --tags $tags `
                           --query id -o tsv | Set-Variable storageAccountId
-Write-Information "Created/updated storage account $storageAccountId"                        
+Write-Host "Created/updated storage account $storageAccountId"                        
 
 # Enable soft delete
 Write-Verbose "Enabling soft delete ($RetentionDays days) for storage account '$Name'..."
@@ -83,7 +85,7 @@ foreach ($cont in $Container) {
                                 --resource-group $ResourceGroup `
                                 --subscription $SubscriptionId `
                                 -o none
-    Write-Information "Created container '$cont' in storage account '$Name'..."
+    Write-Host "Created container '$cont' in storage account '$Name'..."
 }
 
 # Get urls to storage containers
@@ -93,7 +95,9 @@ az storage container list --account-name $Name `
                           --subscription $SubscriptionId `
                           --query "[].name" `
                           -o json | ConvertFrom-Json | Set-Variable existingContainers
-Write-Host "`nStorage container URL's:"
+if ($existingContainers) {
+    Write-Host "`nStorage container URL's:"
+}
 foreach ($cont in $existingContainers) {
     Write-Host "${blobBaseUrl}${cont}"
 }
