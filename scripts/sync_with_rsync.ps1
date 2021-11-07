@@ -3,13 +3,13 @@
 .SYNOPSIS 
     Syncs a pre-configured list of directory pairs
 .DESCRIPTION 
-    Update rsync-settings.jsonc or use the SYNC_SETTINGS_FILE environment variable to point to a settings file in an alternate location
+    Update rsync-settings.jsonc or use the GEEKZTER_RSYNC_SETTINGS_FILE environment variable to point to a settings file in an alternate location
 #>
 #Requires -Version 7
 param ( 
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_RSYNC_SETTINGS_FILE ?? (Join-Path $PSScriptRoot rsync-settings.jsonc),
-    [parameter(Mandatory=$false)][switch]$Delete=$false,
-    [parameter(Mandatory=$false)][switch]$DryRun=$false
+    [parameter(Mandatory=$false)][switch]$AllowDelete,
+    [parameter(Mandatory=$false)][switch]$DryRun
 ) 
 
 Write-Debug $MyInvocation.line
@@ -21,7 +21,8 @@ $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
 try {
     foreach ($directoryPair in $settings.syncPairs) {
-        Sync-DirectoryToAzure -Source $directoryPair.source -Target $directoryPair.target -Delete:$($directoryPair.delete -eq $true) -DryRun:$DryRun -LogFile $logFile
+        $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
+        Sync-DirectoryToAzure -Source $directoryPair.source -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
     }
 } finally {
     Write-Host " "
