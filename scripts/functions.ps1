@@ -57,7 +57,7 @@ function Open-Firewall (
 }
 
 function Login-Az (
-    [parameter(Mandatory=$false)][string]$TenantId,
+    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
     [parameter(Mandatory=$false)][switch]$SkipAzCopy
 ) {
     # Are we logged into the wrong tenant?
@@ -94,8 +94,10 @@ function Login-Az (
         }
     }
 
+    $SkipAzCopy = ($SkipAzCopy -or (Get-Item env:AZCOPY_AUTO_LOGIN_TYPE -ErrorAction SilentlyContinue))
     if (!$SkipAzCopy) {
         # There's no way to check whether we have a session, always (re-)authenticate
+        # TODO: Open browser at https://microsoft.com/devicelogin?
         if ($TenantId) {
             azcopy login --tenant-id $tenantId
         } else {
@@ -188,12 +190,15 @@ function Sync-Directories (
 function Sync-DirectoryToAzure (
     [parameter(Mandatory=$true)][string]$Source,   
     [parameter(Mandatory=$true)][string]$Target,   
-    [parameter(Mandatory=$false)][switch]$Delete=$false,
+    [parameter(Mandatory=$false)][string]$Token,   
+    [parameter(Mandatory=$false)][switch]$Delete,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     # Redirect temporary files to the OS default location, if not already redirected
-    $env:AZCOPY_LOG_LOCATION ??= $env:TEMP ?? $env:TMP ?? $env:TMPDIR
+    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
+    $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
+    $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
         Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
@@ -221,14 +226,19 @@ function Sync-DirectoryToAzure (
         $azcopyArgs += " --dry-run"
     }
 
-    $azcopyCommand = "azcopy sync '$Source' '$Target' $azcopyArgs"
+    if ($Token) {
+        $azCopyTarget = "${Target}?${Token}"
+    } else {
+        $azCopyTarget = $Target
+    }
+    $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
     Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
     Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     Invoke-Expression $azcopyCommand #| Tee-Object -FilePath $LogFile -Append
 
     # Fetch Job ID, so we can find azcopy log and append it to the script log file
     $jobId = ((azcopy jobs list --output-type json | ConvertFrom-Json).MessageContent | ConvertFrom-Json -AsHashtable).JobIDDetails[0].JobId
-    $jobLogFile = (Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log")
+    $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
     if (Test-Path $jobLogFile) {
         Get-Content $jobLogFile | Add-Content -Path $LogFile
     } else {

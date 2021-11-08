@@ -12,7 +12,8 @@ param (
     [parameter(Mandatory=$false)][string]$Location="westeurope",
     [parameter(Mandatory=$false)][string[]]$Container,
     [parameter(Mandatory=$false)][string]$SubscriptionId=$env:ARM_SUBSCRIPTION_ID,
-    [parameter(Mandatory=$false)][int]$RetentionDays=30
+    [parameter(Mandatory=$false)][int]$RetentionDays=30,
+    [parameter(Mandatory=$false)][switch]$CreateServicePrincipal
 ) 
 
 Write-Debug $MyInvocation.line
@@ -34,7 +35,7 @@ $tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=$
 # Create or update resource group
 Write-Verbose "Creating resource group '$ResourceGroup'..."
 az group create -n $Name -g $ResourceGroup -l $Location --subscription $SubscriptionId --tags $tags --query id -o tsv | Set-Variable resourceGroupId
-Write-Host "Created/updated resource group $resourceGroupId"                        
+Write-Host "Created/updated resource group $resourceGroupId"
 
 # Assign ourselves data plane access
 $role = "Storage Blob Data Contributor"
@@ -45,8 +46,20 @@ az role assignment create --role $role `
                           -g $ResourceGroup --subscription $SubscriptionId `
                           -o none
 
+# Create Service Principal
+if ($CreateServicePrincipal) {
+    $servicePrincipalName = "${Name}-azcopy"
+    Write-Verbose "Creating/updating Service Principal '$servicePrincipalName'..."
+    az ad sp create-for-rbac -n $servicePrincipalName `
+                            --scopes $resourceGroupId `
+                            --role $role `
+                            -o json | ConvertFrom-Json | Set-Variable servicePrincipal
+    Write-Host "Created/updated Service Principal '$($servicePrincipal.displayName)'"
+    $servicePrincipal | Format-List
+}
+
 # Create or update Storage Account
-Write-Verbose "Creating storage account '$Name'..."
+Write-Verbose "Creating/updaing storage account '$Name'..."
 az storage account create -n $Name -g $ResourceGroup -l $Location --subscription $SubscriptionId `
                           --access-tier hot `
                           --allow-blob-public-access false `
@@ -58,7 +71,15 @@ az storage account create -n $Name -g $ResourceGroup -l $Location --subscription
                           --sku Standard_RAGRS `
                           --tags $tags `
                           --query id -o tsv | Set-Variable storageAccountId
-Write-Host "Created/updated storage account $storageAccountId"                        
+Write-Host "Created/updated storage account $storageAccountId"
+
+# Add resource lock
+Write-Verbose "Locking access to '$Name' so it can't be deleted..."
+az lock create --lock-type CanNotDelete `
+               --name "${Name}-lock" `
+               --resource $storageAccountId `
+               -o none
+Write-Host "Locked access to '$Name' so it can't be deleted"
 
 # Enable soft delete
 Write-Verbose "Enabling soft delete ($RetentionDays days) for storage account '$Name'..."
@@ -77,7 +98,7 @@ Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -Subsc
 
 # Create / update storage containers                          
 foreach ($cont in $Container) {
-    Write-Verbose "Creating container '$cont' in storage account '$Name'..."
+    Write-Verbose "Creating/updating container '$cont' in storage account '$Name'..."
     az storage container create -n $cont `
                                 --account-name $Name `
                                 --auth-mode login `

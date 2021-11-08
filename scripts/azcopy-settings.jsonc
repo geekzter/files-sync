@@ -3,7 +3,7 @@
     "syncPairs" : [
         {
             "source": "~/Pictures",
-            "target": "https://mystorage.blob.core.windows.net/lightroom/photos"
+            "target": "https://mystorage.blob.core.windows.net/photos"
         }
     ]
 }
