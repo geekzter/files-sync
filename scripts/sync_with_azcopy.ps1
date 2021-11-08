@@ -37,7 +37,7 @@ try {
     [System.Collections.ArrayList]$storageAccountNames = @()
     foreach ($directoryPair in $settings.syncPairs) {
         # Get storage account info (subscription, resource group) with resource graph
-        if ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/[\w|/]+") {
+        if ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
             $storageAccountName = $matches["name"]
             if (!$storageAccountNames.Contains($storageAccountName)) {
                 $storageAccountNames.Add($storageAccountName) | Out-Null
@@ -77,7 +77,7 @@ try {
 
     # Data plane access
     foreach ($directoryPair in $settings.syncPairs) {
-        if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/[\w|/]+")) {
+        if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*")) {
             Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
             continue
         }
