@@ -1,3 +1,27 @@
+function Close-Firewall (
+    [parameter(Mandatory=$true)][string]$StorageAccountName,   
+    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
+    [parameter(Mandatory=$true)][string]$SubscriptionId
+) {
+    # Add firewall rule on storage account
+    Write-Verbose "Enumerating firewall rules for Storage Account '$StorageAccountName'..."
+    az storage account network-rule list -n $StorageAccountName `
+                                         -g $ResourceGroupName `
+                                         --subscription $SubscriptionId `
+                                         --query "ipRules" `
+                                         -o json | ConvertFrom-Json | Set-Variable rules
+    Write-Debug "`$rules: $rules"
+    foreach ($rule in $rules) {
+        az storage account network-rule remove -n $StorageAccountName `
+                                               -g $ResourceGroupName `
+                                               --subscription $SubscriptionId `
+                                               --ip-address $rule.ipAddressOrRange `
+                                               -o none
+        Write-Verbose "Removed firewall rule to allow '$($rule.ipAddressOrRange)' from storage account '$StorageAccountName'"
+    }
+    Write-Information "Cleared firewall rules from storage account '$StorageAccountName'"
+}
+
 function Get-Settings (
     [parameter(Mandatory=$true)][string]$SettingsFile,
     [parameter(Mandatory=$true)][string]$LogFile
@@ -33,27 +57,6 @@ function Get-StorageAccount (
 $script:messages = [System.Collections.ArrayList]@()
 function List-StoredWarnings() {
     $script:messages | Write-Warning
-}
-
-function Open-Firewall (
-    [parameter(Mandatory=$true)][string]$StorageAccountName,   
-    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
-    [parameter(Mandatory=$true)][string]$SubscriptionId
-) {
-    # Add firewall rule on storage account
-    $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
-    Write-Debug "Public IP address is $ipAddress"
-    Write-Verbose "Adding rule for Storage Account $StorageAccountName to allow ip address $ipAddress..."
-    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
-        Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
-    } else {
-        az storage account network-rule add --account-name $StorageAccountName `
-                                            -g $ResourceGroupName `
-                                            --ip-address $ipAddress `
-                                            --subscription $SubscriptionId `
-                                            -o none
-        Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
-    }
 }
 
 function Login-Az (
@@ -97,7 +100,7 @@ function Login-Az (
     $SkipAzCopy = ($SkipAzCopy -or (Get-Item env:AZCOPY_AUTO_LOGIN_TYPE -ErrorAction SilentlyContinue))
     if (!$SkipAzCopy) {
         # There's no way to check whether we have a session, always (re-)authenticate
-        # TODO: Open browser at https://microsoft.com/devicelogin?
+        Start-Process "https://microsoft.com/devicelogin"
         if ($TenantId) {
             azcopy login --tenant-id $tenantId
         } else {
@@ -105,11 +108,38 @@ function Login-Az (
         }
     }
 }
-function StoreAndWrite-Warning (
-    [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message
+
+function Open-Firewall (
+    [parameter(Mandatory=$true)][string]$StorageAccountName,   
+    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
+    [parameter(Mandatory=$true)][string]$SubscriptionId
 ) {
-    $script:messages.Add($Message) | Out-Null
-    Write-Warning $Message
+    # Add firewall rule on storage account
+    $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
+    Write-Debug "Public IP address is $ipAddress"
+    Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
+    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
+        Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
+    } else {
+        az storage account network-rule add --account-name $StorageAccountName `
+                                            -g $ResourceGroupName `
+                                            --ip-address $ipAddress `
+                                            --subscription $SubscriptionId `
+                                            -o none
+        Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+    }
+}
+
+function Store-Message (
+    [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
+    [parameter(Mandatory=$false)][switch]$Passthru
+) {
+    # Strip tokens from message
+    $storedMessage = $Message -replace "\?se.*\%3D",""
+    $script:messages.Add($storedMessage) | Out-Null
+    if ($Passthru) {
+        Write-Output $Message
+    }
 }
 
 function Sync-Directories (
@@ -131,7 +161,7 @@ function Sync-Directories (
     
     if ($Source -notmatch '\*') {
         if (!(Get-ChildItem $Source -Force -ErrorAction SilentlyContinue)) {
-            Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+            Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
             return
         }
         $sourceExpanded = ((Resolve-Path $Source).Path + [IO.Path]::DirectorySeparatorChar)
@@ -144,11 +174,11 @@ function Sync-Directories (
     }
     # Write-Verbose "Checking whether offline files exist in '$Source'..."
     # if (!$Pattern -and (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Force -ErrorAction SilentlyContinue)) {
-    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
     # }
 
     if (-not (Test-Path $Target)) {
-        Write-Output "Target '$Target' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Output "Target '$Target' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
         return
     }
     $targetExpanded = (Resolve-Path $Target).Path 
@@ -178,10 +208,10 @@ function Sync-Directories (
     if ($exitCode -ne 0) {
         switch ($exitCode) {
             23 {
-                Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+                Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
             }
         }
-        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
         exit $exitCode
     }
     Write-Host " "
@@ -205,16 +235,16 @@ function Sync-DirectoryToAzure (
         exit
     }
     if (-not (Test-Path $Source)) {
-        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
         return
     }
     if ($Target -notmatch "https://\w+\.blob.core.windows.net/[\w|/]+") {
-        Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
         return
     }
     # Write-Verbose "Checking whether offline files exist in '$Source'..."
     # if (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Hidden) {
-    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
     # }
 
     $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
@@ -242,12 +272,12 @@ function Sync-DirectoryToAzure (
     if (Test-Path $jobLogFile) {
         Get-Content $jobLogFile | Add-Content -Path $LogFile
     } else {
-        Write-Output "Could not find azcopy log file '${jobLogFile}'" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Output "Could not find azcopy log file '${jobLogFile}'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
     }
     
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
-        Write-Output "'$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Output "'$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
         exit $exitCode
     }
     Write-Host " "
