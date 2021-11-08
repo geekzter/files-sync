@@ -13,6 +13,7 @@ param (
     [parameter(Mandatory=$false)][string[]]$Container,
     [parameter(Mandatory=$false)][string]$SubscriptionId=$env:ARM_SUBSCRIPTION_ID,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
+    [parameter(Mandatory=$false)][int]$MaxSasExpirationDays=30,
     [parameter(Mandatory=$false)][switch]$CreateServicePrincipal
 ) 
 
@@ -80,6 +81,14 @@ az lock create --lock-type CanNotDelete `
                --resource $storageAccountId `
                -o none
 Write-Host "Locked access to '$Name' so it can't be deleted"
+
+Write-Verbose "Creating SAS expiration policy for '$Name' ($MaxSasExpirationDays days)"
+az storage account update --name $Name `
+                          --resource-group $ResourceGroup `
+                          --sas-expiration-period "${MaxSasExpirationDays}.00:00:00" `
+                          --subscription $SubscriptionId `
+                          -o none
+Write-Host "Created SAS expiration policy for '$Name' ($MaxSasExpirationDays days)"
 
 # Enable soft delete
 Write-Verbose "Enabling soft delete ($RetentionDays days) for storage account '$Name'..."
