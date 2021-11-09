@@ -62,11 +62,10 @@ try {
         if ($delete) {
             $sasPermissions += "d"
         }
-        
         az storage account generate-sas --account-key $(az storage account keys list -n $storageAccountName -g $storageAccount.resourceGroup --subscription $storageAccount.subscriptionId --query "[0].value" -o tsv) `
                                         --expiry "$([DateTime]::UtcNow.AddDays($SasTokenValidityDays).ToString('s'))Z" `
                                         --id $storageAccount.id `
-                                        --permissions aclruw `
+                                        --permissions $sasPermissions `
                                         --resource-types co `
                                         --services b `
                                         -o tsv | Set-Variable storageAccountToken
