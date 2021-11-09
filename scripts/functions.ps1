@@ -4,13 +4,14 @@ function Close-Firewall (
     [parameter(Mandatory=$true)][string]$SubscriptionId
 ) {
     # Add firewall rule on storage account
-    Write-Verbose "Enumerating firewall rules for Storage Account '$StorageAccountName'..."
+    Write-Host "Close firewall on Storage Account '$StorageAccountName'..."
     az storage account network-rule list -n $StorageAccountName `
                                          -g $ResourceGroupName `
                                          --subscription $SubscriptionId `
                                          --query "ipRules" `
                                          -o json | ConvertFrom-Json | Set-Variable rules
     Write-Debug "`$rules: $rules"
+    Write-Verbose "Enumerating firewall rules for Storage Account '$StorageAccountName'..."
     foreach ($rule in $rules) {
         az storage account network-rule remove -n $StorageAccountName `
                                                -g $ResourceGroupName `
@@ -115,6 +116,8 @@ function Open-Firewall (
     [parameter(Mandatory=$true)][string]$SubscriptionId
 ) {
     # Add firewall rule on storage account
+    Write-Host "Open firewall on Storage Account '$StorageAccountName'..."
+
     $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
     Write-Debug "Public IP address is $ipAddress"
     Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
