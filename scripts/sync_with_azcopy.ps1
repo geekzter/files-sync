@@ -56,7 +56,7 @@ try {
                       -SubscriptionId $storageAccount.subscriptionId
 
         # Generate SAS
-        Write-Verbose "Generating SAS token for '$storageAccountName'..."
+        Write-Information "Generating SAS token for '$storageAccountName'..."
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
         $sasPermissions = "aclruw"
         if ($delete) {
@@ -68,6 +68,7 @@ try {
                                         --permissions $sasPermissions `
                                         --resource-types co `
                                         --services b `
+                                        --start "$([DateTime]::UtcNow.AddDays(-30).ToString('s'))Z" `
                                         -o tsv | Set-Variable storageAccountToken
         $storageAccount | Add-Member -NotePropertyName Token -NotePropertyValue $storageAccountToken
         $storageAccounts.add($storageAccountName,$storageAccount)
@@ -93,6 +94,8 @@ try {
                               -DryRun:$DryRun `
                               -LogFile $logFile
     }
+} catch {
+    Write-Warning "Script ended prematurely"
 } finally {
     # Close firewall (remove all rules)
     foreach ($storageAccount in $storageAccounts.Values) {
@@ -103,7 +106,7 @@ try {
 
     Write-Host " "
     List-StoredWarnings
-    Write-Host "Configuration file: '$SettingsFile'"
-    Write-Host "Log file: '$logFile'"
+    Write-Host "Configuration file used is '$SettingsFile'"
+    Write-Host "Log file is '$logFile'"
     Write-Host " "
 }

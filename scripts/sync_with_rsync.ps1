@@ -25,10 +25,12 @@ try {
         Set-Variable -Name pattern -Value $directoryPair.pattern -ErrorAction SilentlyContinue
         Sync-Directories -Source $directoryPair.source -Pattern $pattern -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
     }
+} catch {
+    Write-Warning "Script ended prematurely"
 } finally {
     Write-Host " "
     List-StoredWarnings
-    Write-Host "Configuration file: '$SettingsFile'"
-    Write-Host "Log file: '$logFile'"
+    Write-Host "Configuration file used is '$SettingsFile'"
+    Write-Host "Log file is '$logFile'"
     Write-Host " "
 }
