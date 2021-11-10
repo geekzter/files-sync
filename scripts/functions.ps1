@@ -1,3 +1,58 @@
+# Back off, up to a point
+$script:backOffSeconds = 0
+function Calculate-BackOff () {
+    if ($script:backOffSeconds -gt 0) {
+        $script:backOffSeconds = (2 * $script:backOffSeconds)
+    } else {
+        $script:backOffSeconds = 1
+    }
+    if ($script:backOffSeconds -gt 3600) { # 1 hour
+        $script:backOffSeconds = 3600
+    }
+
+    Write-Debug "Calculate-BackOff: $script:backOffSeconds"
+}
+function Continue-BackOff {
+    return ($script:backOffSeconds -gt 0)
+}
+function Get-BackOff {
+    Write-Debug "Get-BackOff: $script:backOffSeconds"
+    return $script:backOffSeconds
+}
+function Reset-BackOff () {
+    $script:backOffSeconds = 0
+}
+function Wait-BackOff () {
+    if ($script:backOffSeconds -gt 0) {
+        Write-Warning "Backing off and waiting $script:backOffSeconds seconds (until $((Get-Date).AddSeconds($script:backOffSeconds).ToString("HH:mm:ss")))..."
+        Start-Sleep -Seconds $script:backOffSeconds
+    }
+}
+
+# Firewall
+function Open-Firewall (
+    [parameter(Mandatory=$true)][string]$StorageAccountName,   
+    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
+    [parameter(Mandatory=$true)][string]$SubscriptionId
+) {
+    # Add firewall rule on storage account
+    Write-Host "Opening firewall on Storage Account '$StorageAccountName'..."
+
+    $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
+    Write-Debug "Public IP address is $ipAddress"
+    Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
+    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
+        Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
+    } else {
+        az storage account network-rule add --account-name $StorageAccountName `
+                                            -g $ResourceGroupName `
+                                            --ip-address $ipAddress `
+                                            --subscription $SubscriptionId `
+                                            -o none
+        Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+    }
+}
+
 function Close-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
@@ -23,26 +78,25 @@ function Close-Firewall (
     Write-Information "Cleared firewall rules from storage account '$StorageAccountName'"
 }
 
-function Get-Settings (
-    [parameter(Mandatory=$true)][string]$SettingsFile,
-    [parameter(Mandatory=$true)][string]$LogFile
-) {
-    if (!$SettingsFile) {
-        Write-Output "No settings file specified, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
-        exit
-    }
-    Write-Information "Using settings file '$SettingsFile'"
-    if (!(Test-Path $SettingsFile)) {
-        Write-Output "Settings file '$SettingsFile' not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
-        exit
-    }
-    $settings = (Get-Content $SettingsFile | ConvertFrom-Json)
-    if (!$settings.syncPairs) {
-        Write-Output "Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
-        exit
-    }
+# AzCopy
+function Get-AzCopyLatestJobId () {
+    # Fetch Job ID in a way that does not generare errors in case there is none
+    azcopy jobs list --output-type json | ConvertFrom-Json `
+                                        | Select-Object -ExpandProperty MessageContent `
+                                        | ConvertFrom-Json -AsHashtable `
+                                        | Select-Object -ExpandProperty JobIDDetails `
+                                        | Select-Object -First 1 `
+                                        | Select-Object -ExpandProperty JobId    
+}
 
-    return $settings
+function Get-AzCopyJobStatus (
+    [parameter(Mandatory=$true)][string]$JobId
+) {
+    # Determine job status in a way that does not generare errors in case there is none
+    azcopy jobs show $jobId --output-type json | ConvertFrom-Json `
+                                               | Select-Object -ExpandProperty MessageContent `
+                                               | ConvertFrom-Json `
+                                               | Select-Object -ExpandProperty JobStatus
 }
 
 function Get-StorageAccount (
@@ -51,13 +105,7 @@ function Get-StorageAccount (
     az graph query -q "resources | where type =~ 'microsoft.storage/storageaccounts' and name == '$StorageAccountName'" `
                    --query "data" `
                    -o json | ConvertFrom-Json | Set-Variable storageAccount
-    # $storageAccount | Format-List | Write-Debug
     return $storageAccount
-}
-
-$script:messages = [System.Collections.ArrayList]@()
-function List-StoredWarnings() {
-    $script:messages | Write-Warning
 }
 
 function Login-Az (
@@ -110,41 +158,91 @@ function Login-Az (
     }
 }
 
-function Open-Firewall (
-    [parameter(Mandatory=$true)][string]$StorageAccountName,   
-    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
-    [parameter(Mandatory=$true)][string]$SubscriptionId
+function Sync-DirectoryToAzure (
+    [parameter(Mandatory=$true)][string]$Source,   
+    [parameter(Mandatory=$true)][string]$Target,   
+    [parameter(Mandatory=$false)][string]$Token,   
+    [parameter(Mandatory=$false)][switch]$Delete,
+    [parameter(Mandatory=$false)][switch]$DryRun,
+    [parameter(Mandatory=$true)][string]$LogFile
 ) {
-    # Add firewall rule on storage account
-    Write-Host "Opening firewall on Storage Account '$StorageAccountName'..."
+    # Redirect temporary files to the OS default location, if not already redirected
+    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
+    $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
+    $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
-    $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
-    Write-Debug "Public IP address is $ipAddress"
-    Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
-    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
-        Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
+    if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
+        Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        exit
+    }
+    if (-not (Test-Path $Source)) {
+        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        return
+    }
+    if ($Target -notmatch "https://\w+\.blob.core.windows.net/[\w|/]+") {
+        Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        return
+    }
+
+    # Get latest Job ID, so we can detect whether a job was created later
+    $previousJobId = Get-AzCopyLatestJobId
+
+    $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
+    $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
+    if ($Delete) {
+        $azcopyArgs += " --delete-destination"
+    }
+    if ($DryRun) {
+        $azcopyArgs += " --dry-run"
+    }
+
+    if ($Token) {
+        $azCopyTarget = "${Target}?${Token}"
     } else {
-        az storage account network-rule add --account-name $StorageAccountName `
-                                            -g $ResourceGroupName `
-                                            --ip-address $ipAddress `
-                                            --subscription $SubscriptionId `
-                                            -o none
-        Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+        $azCopyTarget = $Target
     }
+    $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
+
+    do {
+        Wait-BackOff
+
+        Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+        Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
+        Invoke-Expression $azcopyCommand #| Tee-Object -FilePath $LogFile -Append
+
+        # Fetch Job ID, so we can find azcopy log and append it to the script log file
+        $jobId = Get-AzCopyLatestJobId
+        if ($jobId -and ($jobId -ne $previousJobId)) {
+            $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+            if (Test-Path $jobLogFile) {
+                Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+            } else {
+                Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            }
+            # Determine job status
+            $jobStatus = Get-AzCopyJobStatus -JobId $jobId
+            if ($jobStatus -ieq "Completed") {
+                Reset-BackOff
+            } else {
+                Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+                Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+            }
+        } else {
+            Write-Output "'$azcopyCommand' did not execute, could not find azcopy job ID" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            Calculate-BackOff
+        }
+        
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            Write-Output "'$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            exit $exitCode
+        }
+        Write-Host " "
+
+    } while ($(Continue-BackOff))
 }
 
-function Store-Message (
-    [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
-    [parameter(Mandatory=$false)][switch]$Passthru
-) {
-    # Strip tokens from message
-    $storedMessage = $Message -replace "\?se.*\%3D",""
-    $script:messages.Add($storedMessage) | Out-Null
-    if ($Passthru) {
-        Write-Output $Message
-    }
-}
-
+# rsync
 function Sync-Directories (
     [parameter(Mandatory=$true)][string]$Source,   
     [parameter(Mandatory=$false)][string]$Pattern,   
@@ -220,87 +318,42 @@ function Sync-Directories (
     Write-Host " "
 }
 
-function Sync-DirectoryToAzure (
-    [parameter(Mandatory=$true)][string]$Source,   
-    [parameter(Mandatory=$true)][string]$Target,   
-    [parameter(Mandatory=$false)][string]$Token,   
-    [parameter(Mandatory=$false)][switch]$Delete,
-    [parameter(Mandatory=$false)][switch]$DryRun,
+# Utility
+function Get-Settings (
+    [parameter(Mandatory=$true)][string]$SettingsFile,
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
-    # Redirect temporary files to the OS default location, if not already redirected
-    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
-    $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
-    $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
-
-    if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
-        Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    if (!$SettingsFile) {
+        Write-Output "No settings file specified, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
-    if (-not (Test-Path $Source)) {
-        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-        return
+    Write-Information "Using settings file '$SettingsFile'"
+    if (!(Test-Path $SettingsFile)) {
+        Write-Output "Settings file '$SettingsFile' not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        exit
     }
-    if ($Target -notmatch "https://\w+\.blob.core.windows.net/[\w|/]+") {
-        Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-        return
-    }
-    # Write-Verbose "Checking whether offline files exist in '$Source'..."
-    # if (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Hidden) {
-    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-    # }
-
-    $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
-    $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
-    if ($Delete) {
-        $azcopyArgs += " --delete-destination"
-    }
-    if ($DryRun) {
-        $azcopyArgs += " --dry-run"
+    $settings = (Get-Content $SettingsFile | ConvertFrom-Json)
+    if (!$settings.syncPairs) {
+        Write-Output "Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        exit
     }
 
-    if ($Token) {
-        $azCopyTarget = "${Target}?${Token}"
-    } else {
-        $azCopyTarget = $Target
-    }
-    $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
-    Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
-    Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
-    Invoke-Expression $azcopyCommand #| Tee-Object -FilePath $LogFile -Append
+    return $settings
+}
 
-    # Fetch Job ID, so we can find azcopy log and append it to the script log file
-    azcopy jobs list --output-type json | ConvertFrom-Json `
-                                        | Select-Object -ExpandProperty MessageContent `
-                                        | ConvertFrom-Json -AsHashtable `
-                                        | Select-Object -ExpandProperty JobIDDetails `
-                                        | Select-Object -First 1 `
-                                        | Select-Object -ExpandProperty JobId `
-                                        | Set-Variable jobId
-    if ($jobId) {
-        $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
-        if (Test-Path $jobLogFile) {
-            Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
-        } else {
-            Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-        }
-        # Determine job status
-        azcopy jobs show $jobId --output-type json | ConvertFrom-Json `
-                                                   | Select-Object -ExpandProperty MessageContent `
-                                                   | ConvertFrom-Json `
-                                                   | Select-Object -ExpandProperty JobStatus `
-                                                   | Set-Variable jobStatus
-        if ($jobStatus -ine "Completed") {
-            Write-Output "Job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-        }
-    } else {
-        Write-Output "Could not fetch Job ID for '$azcopyCommand'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+$script:messages = [System.Collections.ArrayList]@()
+function List-StoredWarnings() {
+    $script:messages | Write-Warning
+}
+
+function Store-Message (
+    [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
+    [parameter(Mandatory=$false)][switch]$Passthru
+) {
+    # Strip tokens from message
+    $storedMessage = $Message -replace "\?se.*\%3D",""
+    $script:messages.Add($storedMessage) | Out-Null
+    if ($Passthru) {
+        Write-Output $Message
     }
-    
-    $exitCode = $LASTEXITCODE
-    if ($exitCode -ne 0) {
-        Write-Output "'$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-        exit $exitCode
-    }
-    Write-Host " "
 }
