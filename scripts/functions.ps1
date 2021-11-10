@@ -208,13 +208,14 @@ function Sync-DirectoryToAzure (
 
         Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
         Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
-        Invoke-Expression $azcopyCommand #| Tee-Object -FilePath $LogFile -Append
+        Invoke-Expression $azcopyCommand
 
         # Fetch Job ID, so we can find azcopy log and append it to the script log file
         $jobId = Get-AzCopyLatestJobId
         if ($jobId -and ($jobId -ne $previousJobId)) {
             $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
             if (Test-Path $jobLogFile) {
+                Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
                 Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
             } else {
                 Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
@@ -228,7 +229,8 @@ function Sync-DirectoryToAzure (
                 Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
             }
         } else {
-            Write-Output "'$azcopyCommand' did not execute, could not find azcopy job ID" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            Write-Output "Could not find azcopy job ID" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Verbose
+            Write-Output "'$azcopyCommand' did not execute" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
             Calculate-BackOff
         }
         
@@ -252,7 +254,7 @@ function Sync-Directories (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!(Get-Command rsync -ErrorAction SilentlyContinue)) {
-        Write-Output "rsync nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "rsync not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     if (!(Get-Command bash -ErrorAction SilentlyContinue)) {
