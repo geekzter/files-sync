@@ -29,7 +29,7 @@ if (!$SkipLogin) {
     $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
     if (!$tenantId) {
         # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-        Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
         exit
     }
     Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
@@ -83,7 +83,7 @@ try {
     # Data plane access
     foreach ($directoryPair in $settings.syncPairs) {
         if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*")) {
-            Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
             continue
         }
         $storageAccountName = $matches["name"]

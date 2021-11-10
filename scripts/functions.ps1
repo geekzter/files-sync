@@ -176,11 +176,11 @@ function Sync-DirectoryToAzure (
         exit
     }
     if (-not (Test-Path $Source)) {
-        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
         return
     }
     if ($Target -notmatch "https://\w+\.blob.core.windows.net/[\w|/]+") {
-        Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
         return
     }
 
@@ -203,43 +203,49 @@ function Sync-DirectoryToAzure (
     }
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
 
+    $backOffMessage = "azcopy command '$azcopyCommand' did not execute (could not find azcopy job ID)"
     do {
         Wait-BackOff
 
-        Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
-        Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
-        Invoke-Expression $azcopyCommand
+        try {
+            Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+            Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
+            Invoke-Expression $azcopyCommand
 
-        # Fetch Job ID, so we can find azcopy log and append it to the script log file
-        $jobId = Get-AzCopyLatestJobId
-        if ($jobId -and ($jobId -ne $previousJobId)) {
-            $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
-            if (Test-Path $jobLogFile) {
-                Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
-                Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+            # Fetch Job ID, so we can find azcopy log and append it to the script log file
+            $jobId = Get-AzCopyLatestJobId
+            if ($jobId -and ($jobId -ne $previousJobId)) {
+                $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+                if (Test-Path $jobLogFile) {
+                    Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
+                    Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                } else {
+                    Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                }
+                # Determine job status
+                $jobStatus = Get-AzCopyJobStatus -JobId $jobId
+                if ($jobStatus -ieq "Completed") {
+                    Reset-BackOff
+                    Remove-Message $backOffMessage # Clear previous failures now we have been successful
+                } else {
+                    Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                    Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+                    Remove-Message $backOffMessage # Back off message superseeded by job result
+                }
             } else {
-                Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+                Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                Calculate-BackOff
             }
-            # Determine job status
-            $jobStatus = Get-AzCopyJobStatus -JobId $jobId
-            if ($jobStatus -ieq "Completed") {
-                Reset-BackOff
-            } else {
-                Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-                Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+            
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) {
+                Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                exit $exitCode
             }
-        } else {
-            Write-Output "Could not find azcopy job ID" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Verbose
-            Write-Output "'$azcopyCommand' did not execute" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            Write-Host " "
+        } catch {
             Calculate-BackOff
         }
-        
-        $exitCode = $LASTEXITCODE
-        if ($exitCode -ne 0) {
-            Write-Output "'$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
-            exit $exitCode
-        }
-        Write-Host " "
 
     } while ($(Continue-BackOff))
 }
@@ -264,7 +270,7 @@ function Sync-Directories (
     
     if ($Source -notmatch '\*') {
         if (!(Get-ChildItem $Source -Force -ErrorAction SilentlyContinue)) {
-            Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+            Write-Output "Source '$Source' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
             return
         }
         $sourceExpanded = ((Resolve-Path $Source).Path + [IO.Path]::DirectorySeparatorChar)
@@ -277,11 +283,11 @@ function Sync-Directories (
     }
     # Write-Verbose "Checking whether offline files exist in '$Source'..."
     # if (!$Pattern -and (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Force -ErrorAction SilentlyContinue)) {
-    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
     # }
 
     if (-not (Test-Path $Target)) {
-        Write-Output "Target '$Target' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        Write-Output "Target '$Target' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
         return
     }
     $targetExpanded = (Resolve-Path $Target).Path 
@@ -311,10 +317,10 @@ function Sync-Directories (
     if ($exitCode -ne 0) {
         switch ($exitCode) {
             23 {
-                Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+                Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
             }
         }
-        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
         exit $exitCode
     }
     Write-Host " "
@@ -345,10 +351,10 @@ function Get-Settings (
 
 $script:messages = [System.Collections.ArrayList]@()
 function List-StoredWarnings() {
-    $script:messages | Write-Warning
+    $script:messages | Get-Unique | Write-Warning
 }
 
-function Store-Message (
+function Add-Message (
     [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
     [parameter(Mandatory=$false)][switch]$Passthru
 ) {
@@ -358,4 +364,15 @@ function Store-Message (
     if ($Passthru) {
         Write-Output $Message
     }
+}
+
+function Remove-Message (
+    [parameter(Mandatory=$true)][string]$Message
+) {
+    do {
+        $lastIndexOfMessage = $script:messages.LastIndexOf($Message)
+        if ($lastIndexOfMessage -ge 0) {
+            $script:messages.RemoveAt($lastIndexOfMessage)
+        }
+    } while ($lastIndexOfMessage -ge 0)
 }
