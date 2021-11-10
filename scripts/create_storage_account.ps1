@@ -21,6 +21,11 @@ Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
+if (!(Get-Command az -ErrorAction SilentlyContinue)) {
+    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    exit
+}
+
 Login-Az -SkipAzCopy
 
 if ($Subscription) {

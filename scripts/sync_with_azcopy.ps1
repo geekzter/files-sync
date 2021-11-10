@@ -21,6 +21,10 @@ Write-Debug $MyInvocation.line
 $logFile = (New-TemporaryFile).FullName
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
+if (!(Get-Command az -ErrorAction SilentlyContinue)) {
+    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    exit
+}
 if (!$SkipLogin) {
     $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
     if (!$tenantId) {
@@ -36,7 +40,7 @@ try {
     Write-Verbose "Creating list of target storage account(s)"
     [System.Collections.ArrayList]$storageAccountNames = @()
     foreach ($directoryPair in $settings.syncPairs) {
-        # Get storage account info (subscription, resource group) with resource graph
+        # Parse storage account info
         if ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
             $storageAccountName = $matches["name"]
             if (!$storageAccountNames.Contains($storageAccountName)) {
@@ -48,6 +52,7 @@ try {
     # Control plane access
     $storageAccounts = @{}
     foreach ($storageAccountName in $storageAccountNames) {
+        # Get storage account info (subscription, resource group) with resource graph
         $storageAccount = Get-StorageAccount $storageAccountName
 
         # Add firewall rule on storage account
