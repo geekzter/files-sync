@@ -270,12 +270,31 @@ function Sync-DirectoryToAzure (
     Invoke-Expression $azcopyCommand #| Tee-Object -FilePath $LogFile -Append
 
     # Fetch Job ID, so we can find azcopy log and append it to the script log file
-    $jobId = ((azcopy jobs list --output-type json | ConvertFrom-Json).MessageContent | ConvertFrom-Json -AsHashtable).JobIDDetails[0].JobId
-    $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
-    if (Test-Path $jobLogFile) {
-        Get-Content $jobLogFile | Add-Content -Path $LogFile
+    azcopy jobs list --output-type json | ConvertFrom-Json `
+                                        | Select-Object -ExpandProperty MessageContent `
+                                        | ConvertFrom-Json -AsHashtable `
+                                        | Select-Object -ExpandProperty JobIDDetails `
+                                        | Select-Object -First 1 `
+                                        | Select-Object -ExpandProperty JobId `
+                                        | Set-Variable jobId
+    if ($jobId) {
+        $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+        if (Test-Path $jobLogFile) {
+            Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+        } else {
+            Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        }
+        # Determine job status
+        azcopy jobs show $jobId --output-type json | ConvertFrom-Json `
+                                                   | Select-Object -ExpandProperty MessageContent `
+                                                   | ConvertFrom-Json `
+                                                   | Select-Object -ExpandProperty JobStatus `
+                                                   | Set-Variable jobStatus
+        if ($jobStatus -ine "Completed") {
+            Write-Output "Job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        }
     } else {
-        Write-Output "Could not find azcopy log file '${jobLogFile}'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
+        Write-Output "Could not fetch Job ID for '$azcopyCommand'" | Tee-Object -FilePath $LogFile -Append | Store-Message -Passthru | Write-Warning
     }
     
     $exitCode = $LASTEXITCODE
