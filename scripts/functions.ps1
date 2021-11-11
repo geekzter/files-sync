@@ -215,6 +215,7 @@ function Sync-DirectoryToAzure (
     } else {
         $azCopyTarget = $Target
     }
+    $Source = (Resolve-Path $Source).Path
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
 
     $backOffMessage = "azcopy command '$azcopyCommand' did not execute (could not find azcopy job ID)"
@@ -231,8 +232,10 @@ function Sync-DirectoryToAzure (
             if ($jobId -and ($jobId -ne $previousJobId)) {
                 $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
                 if (Test-Path $jobLogFile) {
-                    Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
-                    Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                    if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
+                        Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
+                    }
+                Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
                 } else {
                     Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                 }
