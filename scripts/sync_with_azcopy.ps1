@@ -18,7 +18,7 @@ Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
-$logFile = (New-TemporaryFile).FullName
+$logFile = Create-LogFile
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
@@ -111,7 +111,7 @@ try {
 
     Write-Host " "
     List-StoredWarnings
-    Write-Host "Settings file used is '$SettingsFile'"
-    Write-Host "Log file is '$logFile'"
+    Write-Host "Settings file used is located at: '$SettingsFile'"
+    Write-Host "Script log file is located at: '$logFile'"
     Write-Host " "
 }

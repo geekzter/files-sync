@@ -99,6 +99,19 @@ function Get-AzCopyJobStatus (
                                                | Select-Object -ExpandProperty JobStatus
 }
 
+function Get-AzCopyLogLevel () {
+    if (($DebugPreference -inotmatch "SilentlyContinue|Ignore") -or ($VerbosePreference -inotmatch "SilentlyContinue|Ignore") -or ($InformationPreference -inotmatch "SilentlyContinue|Ignore")) {
+        return "INFO"
+    }
+    if ($WarningPreference -inotmatch "SilentlyContinue|Ignore") {
+        return "WARNING"
+    }
+    if ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore") {
+        return "ERROR"
+    }
+    return "NONE"
+}
+
 function Get-StorageAccount (
     [parameter(Mandatory=$true)][string]$StorageAccountName
 ) {
@@ -195,6 +208,7 @@ function Sync-DirectoryToAzure (
     if ($DryRun) {
         $azcopyArgs += " --dry-run"
     }
+    $azcopyArgs += " --log-level $(Get-AzCopyLogLevel)"
 
     if ($Token) {
         $azCopyTarget = "${Target}?${Token}"
@@ -295,7 +309,7 @@ function Sync-Directories (
         $targetExpanded = "'${targetExpanded}'"
     }
     
-    $rsyncArgs = "-auvvz --modify-window=1 --exclude-from=$(Join-Path $PSScriptRoot exclude.txt)"
+    $rsyncArgs = "-auz --modify-window=1 --exclude-from=$(Join-Path $PSScriptRoot exclude.txt)"
     if ($Pattern) {
         $rsyncArgs += " --include=$Pattern --exclude=*"
     }
@@ -307,6 +321,11 @@ function Sync-Directories (
     }
     if ($LogFile) {
         $rsyncArgs += " --log-file=$LogFile"
+    }
+    if (($DebugPreference -inotmatch "SilentlyContinue|Ignore") -or ($VerbosePreference -inotmatch "SilentlyContinue|Ignore")) {
+        $rsyncArgs += " -vv"
+    } elseif ($InformationPreference -inotmatch "SilentlyContinue|Ignore") {
+        $rsyncArgs += " -v"
     }
 
     $rsyncCommand = "rsync $rsyncArgs $sourceExpanded $targetExpanded"
@@ -327,6 +346,27 @@ function Sync-Directories (
 }
 
 # Utility
+function Create-LogFile() {
+    (New-TemporaryFile).FullName -replace "\w+$","log"
+}
+
+$script:messages = [System.Collections.ArrayList]@()
+function List-StoredWarnings() {
+    $script:messages | Get-Unique | Write-Warning
+}
+
+function Add-Message (
+    [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
+    [parameter(Mandatory=$false)][switch]$Passthru
+) {
+    # Strip tokens from message
+    $storedMessage = $Message -replace "\?se.*\%3D",""
+    $script:messages.Add($storedMessage) | Out-Null
+    if ($Passthru) {
+        Write-Output $Message
+    }
+}
+
 function Get-Settings (
     [parameter(Mandatory=$true)][string]$SettingsFile,
     [parameter(Mandatory=$true)][string]$LogFile
@@ -347,23 +387,6 @@ function Get-Settings (
     }
 
     return $settings
-}
-
-$script:messages = [System.Collections.ArrayList]@()
-function List-StoredWarnings() {
-    $script:messages | Get-Unique | Write-Warning
-}
-
-function Add-Message (
-    [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
-    [parameter(Mandatory=$false)][switch]$Passthru
-) {
-    # Strip tokens from message
-    $storedMessage = $Message -replace "\?se.*\%3D",""
-    $script:messages.Add($storedMessage) | Out-Null
-    if ($Passthru) {
-        Write-Output $Message
-    }
 }
 
 function Remove-Message (
