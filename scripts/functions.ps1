@@ -185,7 +185,7 @@ function Sync-DirectoryToAzure (
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
-        Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ObjectNotFound
         exit
     }
     if (-not (Test-Path $Source)) {
@@ -235,7 +235,7 @@ function Sync-DirectoryToAzure (
                     if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
                         Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
                     }
-                Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                    Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
                 } else {
                     Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                 }
@@ -250,13 +250,18 @@ function Sync-DirectoryToAzure (
                     Remove-Message $backOffMessage # Back off message superseeded by job result
                 }
             } else {
-                Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                 Calculate-BackOff
+                Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
+                if (Get-BackOff -le 60) {
+                    Write-Host $backOffMessage
+                } else {
+                    Write-Warning $backOffMessage
+                }
             }
             
             $exitCode = $LASTEXITCODE
             if ($exitCode -ne 0) {
-                Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Exit -ErrorId $exitCode
                 exit $exitCode
             }
             Write-Host " "
@@ -277,11 +282,11 @@ function Sync-Directories (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!(Get-Command rsync -ErrorAction SilentlyContinue)) {
-        Write-Output "rsync not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "rsync not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Exit -Category ObjectNotFound
         exit
     }
     if (!(Get-Command bash -ErrorAction SilentlyContinue)) {
-        Write-Output "This script uses bash to invoke rsync and bash was not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "This script uses bash to invoke rsync and bash was not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Exit -Category ObjectNotFound
         exit
     }
     
@@ -342,7 +347,7 @@ function Sync-Directories (
                 Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
             }
         }
-        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
         exit $exitCode
     }
     Write-Host " "
@@ -375,17 +380,17 @@ function Get-Settings (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!$SettingsFile) {
-        Write-Output "No settings file specified, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "No settings file specified, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category InvalidArgument
         exit
     }
     Write-Information "Using settings file '$SettingsFile'"
     if (!(Test-Path $SettingsFile)) {
-        Write-Output "Settings file '$SettingsFile' not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "Settings file '$SettingsFile' not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category InvalidData
         exit
     }
     $settings = (Get-Content $SettingsFile | ConvertFrom-Json)
     if (!$settings.syncPairs) {
-        Write-Output "Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category InvalidData
         exit
     }
 

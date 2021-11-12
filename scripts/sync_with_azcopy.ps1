@@ -22,14 +22,14 @@ $logFile = Create-LogFile
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ObjectNotFound
     exit
 }
 if (!$SkipLogin) {
     $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
     if (!$tenantId) {
         # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-        Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+        Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -Category InvalidData
         exit
     }
     Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
@@ -53,7 +53,14 @@ try {
     $storageAccounts = @{}
     foreach ($storageAccountName in $storageAccountNames) {
         # Get storage account info (subscription, resource group) with resource graph
+        Write-Information "Retrieving resource id/group and subscription for '$storageAccountName' using Azure resource graph..."
         $storageAccount = Get-StorageAccount $storageAccountName
+        if (!$storageAccount) {
+            Write-Error -Category ResourceUnavailable `
+                        -Message "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph, exiting"
+            exit
+        }
+        Write-Verbose "'$storageAccountName' has resource id '$($storageAccount.id)'"
 
         # Add firewall rule on storage account
         Open-Firewall -StorageAccountName $storageAccountName `
@@ -87,14 +94,13 @@ try {
             continue
         }
         $storageAccountName = $matches["name"]
-        $storageAccount = Get-StorageAccount $storageAccountName
+        $storageAccount = $storageAccounts[$storageAccountName]
 
         # Start syncing
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
-        $storageAccountToken = $storageAccounts[$storageAccountName].Token
         Sync-DirectoryToAzure -Source $directoryPair.source `
                               -Target $directoryPair.target `
-                              -Token $storageAccountToken `
+                              -Token $storageAccount.Token `
                               -Delete:$delete `
                               -DryRun:$DryRun `
                               -LogFile $logFile
@@ -103,10 +109,12 @@ try {
     Write-Warning "Script ended prematurely"
 } finally {
     # Close firewall (remove all rules)
-    foreach ($storageAccount in $storageAccounts.Values) {
-        Close-Firewall -StorageAccountName $storageAccount.name `
-                       -ResourceGroupName $storageAccount.resourceGroup `
-                       -SubscriptionId $storageAccount.subscriptionId        
+    if ($storageAccounts) {
+        foreach ($storageAccount in $storageAccounts.Values) {
+            Close-Firewall -StorageAccountName $storageAccount.name `
+                        -ResourceGroupName $storageAccount.resourceGroup `
+                        -SubscriptionId $storageAccount.subscriptionId        
+        }
     }
 
     Write-Host " "
