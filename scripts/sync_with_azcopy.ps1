@@ -10,7 +10,6 @@ param (
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_AZCOPY_SETTINGS_FILE ?? (Join-Path $PSScriptRoot azcopy-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
     [parameter(Mandatory=$false)][switch]$DryRun,
-    [parameter(Mandatory=$false)][switch]$SkipLogin,
     [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7
 ) 
 
@@ -22,18 +21,16 @@ $logFile = Create-LogFile
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ObjectNotFound
+    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $logFile -Append | Write-Error -Category ObjectNotFound
     exit
 }
-if (!$SkipLogin) {
-    $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
-    if (!$tenantId) {
-        # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-        Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -Category InvalidData
-        exit
-    }
-    Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+$tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
+if (!$tenantId) {
+    # With Tenant ID we can retrieve other data with resource graph, without it we're toast
+    Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Error -Category InvalidData
+    exit
 }
+Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
 
 try {
     # Create list of storage accounts
@@ -68,29 +65,21 @@ try {
                       -SubscriptionId $storageAccount.subscriptionId
 
         # Generate SAS
-        Write-Information "Generating SAS token for '$storageAccountName'..."
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
-        $sasPermissions = "aclruw"
-        if ($delete) {
-            $sasPermissions += "d"
-        }
-        az storage account generate-sas --account-key $(az storage account keys list -n $storageAccountName -g $storageAccount.resourceGroup --subscription $storageAccount.subscriptionId --query "[0].value" -o tsv) `
-                                        --expiry "$([DateTime]::UtcNow.AddDays($SasTokenValidityDays).ToString('s'))Z" `
-                                        --id $storageAccount.id `
-                                        --permissions $sasPermissions `
-                                        --resource-types co `
-                                        --services b `
-                                        --start "$([DateTime]::UtcNow.AddDays(-30).ToString('s'))Z" `
-                                        -o tsv | Set-Variable storageAccountToken
+        $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
+                                               -ResourceGroupName $storageAccount.resourceGroup `
+                                               -SubscriptionId $storageAccount.subscriptionId `
+                                               -SasTokenValidityDays $SasTokenValidityDays `
+                                               -Write `
+                                               -Delete:$delete
         $storageAccount | Add-Member -NotePropertyName Token -NotePropertyValue $storageAccountToken
         $storageAccounts.add($storageAccountName,$storageAccount)
-        Write-Verbose "Generated SAS token for '$storageAccountName'"
     }
 
     # Data plane access
     foreach ($directoryPair in $settings.syncPairs) {
         if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*")) {
-            Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+            Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
             continue
         }
         $storageAccountName = $matches["name"]
@@ -102,6 +91,7 @@ try {
                               -Target $directoryPair.target `
                               -Token $storageAccount.Token `
                               -Delete:$delete `
+                              -Write `
                               -DryRun:$DryRun `
                               -LogFile $logFile
     }

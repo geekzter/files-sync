@@ -78,6 +78,36 @@ function Close-Firewall (
     Write-Information "Cleared firewall rules from storage account '$StorageAccountName'"
 }
 
+function Create-SasToken (
+    [parameter(Mandatory=$true)][string]$StorageAccountName,   
+    [parameter(Mandatory=$true)][string]$ResourceGroupName,   
+    [parameter(Mandatory=$true)][string]$SubscriptionId,
+    [parameter(Mandatory=$false)][switch]$Write,
+    [parameter(Mandatory=$false)][switch]$Delete,
+    [parameter(Mandatory=$true)][int]$SasTokenValidityDays
+) {
+    # Add firewall rule on storage account
+    Write-Information "Generating SAS token for '$StorageAccountName'..."
+    $sasPermissions = "lr"
+    if ($Write) {
+        $sasPermissions += "acuw"
+    }
+    if ($Delete) {
+        $sasPermissions += "d"
+    }
+    az storage account generate-sas --account-key $(az storage account keys list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "[0].value" -o tsv) `
+                                    --expiry "$([DateTime]::UtcNow.AddDays($SasTokenValidityDays).ToString('s'))Z" `
+                                    --id $storageAccount.id `
+                                    --permissions $sasPermissions `
+                                    --resource-types co `
+                                    --services b `
+                                    --start "$([DateTime]::UtcNow.AddDays(-30).ToString('s'))Z" `
+                                    -o tsv | Set-Variable storageAccountToken
+    Write-Debug "storageAccountToken: $storageAccountToken"
+    Write-Verbose "Generated SAS token for '$StorageAccountName'"
+    return $storageAccountToken
+}
+
 # AzCopy
 function Get-AzCopyLatestJobId () {
     # Fetch Job ID in a way that does not generare errors in case there is none
