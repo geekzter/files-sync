@@ -64,7 +64,7 @@ do {
     Wait-BackOff
 
     try {
-        Write-Output "`nDownloading '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
+        Write-Output "`nDownloading '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Blue
         Write-Output $azcopyCommand | Tee-Object -FilePath $logFile -Append | Write-Debug
         Invoke-Expression $azcopyCommand
 
@@ -85,6 +85,7 @@ do {
             if ($jobStatus -ieq "Completed") {
                 Reset-BackOff
                 Remove-Message $backOffMessage # Clear previous failures now we have been successful
+                Write-Output "`nCompleted '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
             } else {
                 Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
                 Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal

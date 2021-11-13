@@ -253,7 +253,7 @@ function Sync-DirectoryToAzure (
         Wait-BackOff
 
         try {
-            Write-Output "`nSyncing '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+            Write-Output "`nSyncing '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Blue
             Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
             Invoke-Expression $azcopyCommand
 
@@ -274,6 +274,7 @@ function Sync-DirectoryToAzure (
                 if ($jobStatus -ieq "Completed") {
                     Reset-BackOff
                     Remove-Message $backOffMessage # Clear previous failures now we have been successful
+                    Write-Output "`nCompleted '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
                 } else {
                     Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                     Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
@@ -367,11 +368,13 @@ function Sync-Directories (
     }
 
     $rsyncCommand = "rsync $rsyncArgs $sourceExpanded $targetExpanded"
-    Write-Output "`nSyncing $sourceExpanded -> $targetExpanded" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+    Write-Output "`nSyncing $sourceExpanded -> $targetExpanded" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Blue
     Write-Output $rsyncCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     bash -c "${rsyncCommand}" # Use bash to support certain wildcards e.g. .??*
     $exitCode = $LASTEXITCODE
-    if ($exitCode -ne 0) {
+    if ($exitCode -eq 0) {
+        Write-Output "`nCompleted '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
+    } else {
         switch ($exitCode) {
             23 {
                 Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
