@@ -223,7 +223,7 @@ function Sync-DirectoryToAzure (
         Wait-BackOff
 
         try {
-            Write-Output "`nSync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+            Write-Output "`nSyncing '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
             Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
             Invoke-Expression $azcopyCommand
 
@@ -337,7 +337,7 @@ function Sync-Directories (
     }
 
     $rsyncCommand = "rsync $rsyncArgs $sourceExpanded $targetExpanded"
-    Write-Output "`nSync $sourceExpanded -> $targetExpanded" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
+    Write-Output "`nSyncing $sourceExpanded -> $targetExpanded" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Green
     Write-Output $rsyncCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     bash -c "${rsyncCommand}" # Use bash to support certain wildcards e.g. .??*
     $exitCode = $LASTEXITCODE
