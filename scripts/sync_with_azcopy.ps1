@@ -91,12 +91,9 @@ try {
                               -Target $directoryPair.target `
                               -Token $storageAccount.Token `
                               -Delete:$delete `
-                              -Write `
                               -DryRun:$DryRun `
                               -LogFile $logFile
     }
-} catch {
-    Write-Warning "Script ended prematurely"
 } finally {
     # Close firewall (remove all rules)
     if ($storageAccounts) {
