@@ -18,7 +18,7 @@ Write-Debug $MyInvocation.line
 . (Join-Path $PSScriptRoot functions.ps1)
 
 $logFile = Create-LogFile
-$settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
+$settings = Get-Settings -SettingsFile $SettingsFile -LogFile $logFile
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
     Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning

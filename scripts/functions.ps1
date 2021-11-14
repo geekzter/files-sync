@@ -297,7 +297,6 @@ function Sync-DirectoryToAzure (
                     Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
                     exit $exitCode
                 }
-                Write-Host " "
             }
         } catch {
             Write-Output $_ | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
@@ -379,7 +378,6 @@ function Sync-Directories (
             }
         }
     }
-    Write-Host " "
 }
 
 # Utility
