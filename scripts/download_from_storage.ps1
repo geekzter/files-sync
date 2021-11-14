@@ -28,12 +28,12 @@ if ($Source -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+
 
 # Control plane access
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "$($PSStyle.Foreground.Red)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 if (!$TenantId) {
     # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-    Write-Output "$($PSStyle.Foreground.Red)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    Write-Output "$($PSStyle.Formatting.Error)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 Login-Az -TenantId $TenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
@@ -85,9 +85,9 @@ do {
             if ($jobStatus -ieq "Completed") {
                 Reset-BackOff
                 Remove-Message $backOffMessage # Clear previous failures now we have been successful
-                Write-Output "$($PSStyle.Foreground.Green)$($PSStyle.Bold)Completed$($PSStyle.Reset) '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host
+                Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host
             } else {
-                Write-Output "azcopy job '$jobId' status is '$($PSStyle.Foreground.Red)$jobStatus$($PSStyle.Reset)'" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                Write-Output "azcopy job '$jobId' status is '$($PSStyle.Formatting.Error)$jobStatus$($PSStyle.Reset)'" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
                 Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
                 Remove-Message $backOffMessage # Back off message superseeded by job result
             }

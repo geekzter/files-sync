@@ -21,13 +21,13 @@ $logFile = Create-LogFile
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "$($PSStyle.Foreground.Red)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
 if (!$tenantId) {
     # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-    Write-Output "$($PSStyle.Foreground.Red)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    Write-Output "$($PSStyle.Formatting.Error)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy

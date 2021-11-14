@@ -215,7 +215,7 @@ function Sync-DirectoryToAzure (
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
-        Write-Output "$($PSStyle.Foreground.Red)azcopy not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "$($PSStyle.Formatting.Error)azcopy not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     if (-not (Test-Path $Source)) {
@@ -253,7 +253,7 @@ function Sync-DirectoryToAzure (
         Wait-BackOff
 
         try {
-            Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) to sync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
+            Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
             Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
             try {
                 # Use try / finally, so we can gracefully intercept Ctrl-C
@@ -276,11 +276,11 @@ function Sync-DirectoryToAzure (
                     if ($jobStatus -ieq "Completed") {
                         Reset-BackOff
                         Remove-Message $backOffMessage # Clear previous failures now we have been successful
-                        Write-Output "$($PSStyle.Foreground.Green)$($PSStyle.Bold)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
+                        Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
                     } else {
                         Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
                         Remove-Message $backOffMessage # Back off message superseded by job result
-                        Write-Output "$($PSStyle.Foreground.Red)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                        Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
                     }
                 } else {
                     Calculate-BackOff
@@ -317,11 +317,11 @@ function Sync-Directories (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!(Get-Command rsync -ErrorAction SilentlyContinue)) {
-        Write-Output "$($PSStyle.Foreground.Red)rsync not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "$($PSStyle.Formatting.Error)rsync not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     if (!(Get-Command bash -ErrorAction SilentlyContinue)) {
-        Write-Output "$($PSStyle.Foreground.Red)This script uses bash to invoke rsync and bash was not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "$($PSStyle.Formatting.Error)This script uses bash to invoke rsync and bash was not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     
@@ -362,12 +362,12 @@ function Sync-Directories (
 
     $sourceExpression = $sourceExpanded -match "\s" ? "'$sourceExpanded'" : $sourceExpanded # Don't quote wildcards
     $rsyncCommand = "rsync $rsyncArgs $sourceExpression '$targetExpanded'"
-    Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) to sync '$sourceExpanded' -> '$targetExpanded'" | Tee-Object -FilePath $LogFile -Append
+    Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) '$sourceExpanded' -> '$targetExpanded'" | Tee-Object -FilePath $LogFile -Append
     Write-Output $rsyncCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     bash -c "${rsyncCommand}" # Use bash to support certain wildcards e.g. .??*
     $exitCode = $LASTEXITCODE
     if ($exitCode -eq 0) {
-        Write-Output "$($PSStyle.Foreground.Green)$($PSStyle.Bold)Completed$($PSStyle.Reset) '$sourceExpanded' -> '$targetExpanded'" | Tee-Object -FilePath $logFile -Append
+        Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$sourceExpanded' -> '$targetExpanded'" | Tee-Object -FilePath $logFile -Append
     } else {
         switch ($exitCode) {
             23 {
@@ -409,17 +409,17 @@ function Get-Settings (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!$SettingsFile) {
-        Write-Output "$($PSStyle.Foreground.Red)No settings file specified, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "$($PSStyle.Formatting.Error)No settings file specified, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     Write-Output "Using settings file '$SettingsFile'" | Tee-Object -FilePath $LogFile -Append | Write-Information
     if (!(Test-Path $SettingsFile)) {
-        Write-Output "$($PSStyle.Foreground.Red)Settings file '$SettingsFile' not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "$($PSStyle.Formatting.Error)Settings file '$SettingsFile' not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     $settings = (Get-Content $SettingsFile | ConvertFrom-Json)
     if (!$settings.syncPairs) {
-        Write-Output "$($PSStyle.Foreground.Red)Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        Write-Output "$($PSStyle.Formatting.Error)Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
 
