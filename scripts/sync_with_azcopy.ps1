@@ -5,7 +5,7 @@
 .DESCRIPTION 
     Update azcopy-settings.jsonc or use the GEEKZTER_AZCOPY_SETTINGS_FILE environment variable to point to a settings file in an alternate location
 #>
-#Requires -Version 7
+#Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_AZCOPY_SETTINGS_FILE ?? (Join-Path $PSScriptRoot azcopy-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
@@ -21,13 +21,13 @@ $logFile = Create-LogFile
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $logFile -Append | Write-Error -Category ObjectNotFound
+    Write-Output "$($PSStyle.Foreground.Red)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
 if (!$tenantId) {
     # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-    Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Error -Category InvalidData
+    Write-Output "$($PSStyle.Foreground.Red)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
@@ -53,8 +53,7 @@ try {
         Write-Information "Retrieving resource id/group and subscription for '$storageAccountName' using Azure resource graph..."
         $storageAccount = Get-StorageAccount $storageAccountName
         if (!$storageAccount) {
-            Write-Error -Category ResourceUnavailable `
-                        -Message "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph, exiting"
+            Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
             exit
         }
         Write-Verbose "'$storageAccountName' has resource id '$($storageAccount.id)'"

@@ -5,7 +5,7 @@
 .DESCRIPTION 
     Update rsync-settings.jsonc or use the GEEKZTER_RSYNC_SETTINGS_FILE environment variable to point to a settings file in an alternate location
 #>
-#Requires -Version 7
+#Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_RSYNC_SETTINGS_FILE ?? (Join-Path $PSScriptRoot rsync-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,

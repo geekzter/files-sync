@@ -5,7 +5,7 @@
 .DESCRIPTION 
     Creates a storage account configured with: soft delete, firewall opened only to client ip address, and the 'Data Contributor' role configured for currently logged on user/principal
 #>
-#Requires -Version 7
+#Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$true)][string]$Name,
     [parameter(Mandatory=$true)][string]$ResourceGroup,
@@ -22,7 +22,7 @@ Write-Debug $MyInvocation.line
 . (Join-Path $PSScriptRoot functions.ps1)
 
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Exit -Category ObjectNotFound
+    Write-Output "$($PSStyle.Foreground.Red)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 

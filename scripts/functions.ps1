@@ -215,7 +215,7 @@ function Sync-DirectoryToAzure (
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
-        Write-Output "azcopy nog found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ObjectNotFound
+        Write-Output "$($PSStyle.Foreground.Red)azcopy not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     if (-not (Test-Path $Source)) {
@@ -253,50 +253,54 @@ function Sync-DirectoryToAzure (
         Wait-BackOff
 
         try {
-            Write-Output "`nSyncing '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Blue
+            Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) to sync '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
             Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
-            Invoke-Expression $azcopyCommand
-
-            # Fetch Job ID, so we can find azcopy log and append it to the script log file
-            $jobId = Get-AzCopyLatestJobId
-            if ($jobId -and ($jobId -ne $previousJobId)) {
-                $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
-                if (Test-Path $jobLogFile) {
-                    if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
-                        Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
+            try {
+                # Use try / finally, so we can gracefully intercept Ctrl-C
+                Invoke-Expression $azcopyCommand
+            } finally {
+                # Fetch Job ID, so we can find azcopy log and append it to the script log file
+                $jobId = Get-AzCopyLatestJobId
+                if ($jobId -and ($jobId -ne $previousJobId)) {
+                    $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+                    if (Test-Path $jobLogFile) {
+                        if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
+                            Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
+                        }
+                        Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                    } else {
+                        Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                     }
-                    Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                    # Determine job status
+                    $jobStatus = Get-AzCopyJobStatus -JobId $jobId
+                    if ($jobStatus -ieq "Completed") {
+                        Reset-BackOff
+                        Remove-Message $backOffMessage # Clear previous failures now we have been successful
+                        Write-Output "$($PSStyle.Foreground.Green)$($PSStyle.Bold)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
+                    } else {
+                        Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+                        Remove-Message $backOffMessage # Back off message superseded by job result
+                        Write-Output "$($PSStyle.Foreground.Red)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                    }
                 } else {
-                    Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                    Calculate-BackOff
+                    Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
+                    if (Get-BackOff -le 60) {
+                        Write-Host $backOffMessage
+                    } else {
+                        Write-Warning $backOffMessage
+                    }
                 }
-                # Determine job status
-                $jobStatus = Get-AzCopyJobStatus -JobId $jobId
-                if ($jobStatus -ieq "Completed") {
-                    Reset-BackOff
-                    Remove-Message $backOffMessage # Clear previous failures now we have been successful
-                    Write-Output "`nCompleted '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
-                } else {
-                    Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-                    Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
-                    Remove-Message $backOffMessage # Back off message superseeded by job result
+                
+                $exitCode = $LASTEXITCODE
+                if ($exitCode -ne 0) {
+                    Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
+                    exit $exitCode
                 }
-            } else {
-                Calculate-BackOff
-                Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
-                if (Get-BackOff -le 60) {
-                    Write-Host $backOffMessage
-                } else {
-                    Write-Warning $backOffMessage
-                }
+                Write-Host " "
             }
-            
-            $exitCode = $LASTEXITCODE
-            if ($exitCode -ne 0) {
-                Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Exit -ErrorId $exitCode
-                exit $exitCode
-            }
-            Write-Host " "
         } catch {
+            Write-Output $_ | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
             Calculate-BackOff
         }
 
@@ -313,11 +317,11 @@ function Sync-Directories (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!(Get-Command rsync -ErrorAction SilentlyContinue)) {
-        Write-Output "rsync not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Exit -Category ObjectNotFound
+        Write-Output "$($PSStyle.Foreground.Red)rsync not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     if (!(Get-Command bash -ErrorAction SilentlyContinue)) {
-        Write-Output "This script uses bash to invoke rsync and bash was not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Exit -Category ObjectNotFound
+        Write-Output "$($PSStyle.Foreground.Red)This script uses bash to invoke rsync and bash was not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     
@@ -330,23 +334,12 @@ function Sync-Directories (
     } else {
         $sourceExpanded = $Source
     }
-    if ($sourceExpanded -match "\s") {
-        $sourceExpanded = "'${sourceExpanded}'"
-        Write-Debug "`$sourceExpanded: $sourceExpanded"
-    }
-    # Write-Verbose "Checking whether offline files exist in '$Source'..."
-    # if (!$Pattern -and (Get-ChildItem -Path $Source -Include *.icloud -Recurse -Force -ErrorAction SilentlyContinue)) {
-    #     Write-Output "Online iCloud files exist in '$Source' and will be ignored" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-    # }
 
     if (-not (Test-Path $Target)) {
         Write-Output "Target '$Target' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
         return
     }
     $targetExpanded = (Resolve-Path $Target).Path 
-    if ($targetExpanded -match "\s") {
-        $targetExpanded = "'${targetExpanded}'"
-    }
     
     $rsyncArgs = "-auz --modify-window=1 --exclude-from=$(Join-Path $PSScriptRoot exclude.txt)"
     if ($Pattern) {
@@ -367,21 +360,24 @@ function Sync-Directories (
         $rsyncArgs += " -v"
     }
 
-    $rsyncCommand = "rsync $rsyncArgs $sourceExpanded $targetExpanded"
-    Write-Output "`nSyncing $sourceExpanded -> $targetExpanded" | Tee-Object -FilePath $LogFile -Append | Write-Host -ForegroundColor Blue
+    $sourceExpression = $sourceExpanded -match "\s" ? "'$sourceExpanded'" : $sourceExpanded # Don't quote wildcards
+    $rsyncCommand = "rsync $rsyncArgs $sourceExpression '$targetExpanded'"
+    Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) to sync '$sourceExpanded' -> '$targetExpanded'" | Tee-Object -FilePath $LogFile -Append
     Write-Output $rsyncCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
     bash -c "${rsyncCommand}" # Use bash to support certain wildcards e.g. .??*
     $exitCode = $LASTEXITCODE
     if ($exitCode -eq 0) {
-        Write-Output "`nCompleted '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
+        Write-Output "$($PSStyle.Foreground.Green)$($PSStyle.Bold)Completed$($PSStyle.Reset) '$sourceExpanded' -> '$targetExpanded'" | Tee-Object -FilePath $logFile -Append
     } else {
         switch ($exitCode) {
             23 {
-                Write-Output "Status 23, you may not have sufficient permissions on ${sourceExpanded}" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                Write-Output "Not all files were synced. You may have insufficient permissions to sync all files in '${sourceExpanded}' (status $exitCode)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+            }
+            default {
+                Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
+                exit $exitCode
             }
         }
-        Write-Output "'$rsyncCommand' exited with status $exitCode, exiting" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
-        exit $exitCode
     }
     Write-Host " "
 }
@@ -413,17 +409,17 @@ function Get-Settings (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!$SettingsFile) {
-        Write-Output "No settings file specified, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category InvalidArgument
+        Write-Output "$($PSStyle.Foreground.Red)No settings file specified, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
-    Write-Information "Using settings file '$SettingsFile'"
+    Write-Output "Using settings file '$SettingsFile'" | Tee-Object -FilePath $LogFile -Append | Write-Information
     if (!(Test-Path $SettingsFile)) {
-        Write-Output "Settings file '$SettingsFile' not found, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category InvalidData
+        Write-Output "$($PSStyle.Foreground.Red)Settings file '$SettingsFile' not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
     $settings = (Get-Content $SettingsFile | ConvertFrom-Json)
     if (!$settings.syncPairs) {
-        Write-Output "Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category InvalidData
+        Write-Output "$($PSStyle.Foreground.Red)Settings file '$SettingsFile' does not contain any directory pairs to sync, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
 

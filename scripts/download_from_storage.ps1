@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-#Requires -Version 7
+#Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$true)][string]$Source,
     [parameter(Mandatory=$true)][string]$Destination,
@@ -23,17 +23,17 @@ if (-not (Test-Path $Destination)) {
 if ($Source -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
     $storageAccountName = $matches["name"]
 } else {
-    Write-Output "'$Source' is not a valid storage url, exiting" | Tee-Object -FilePath $logFile -Append | Write-Error -Category ObjectNotFound
+    Write-Output "'$Source' is not a valid storage url, skipping" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
 }
 
 # Control plane access
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "Azure CLI not found, exiting" | Tee-Object -FilePath $logFile -Append | Write-Error -Category ObjectNotFound
+    Write-Output "$($PSStyle.Foreground.Red)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 if (!$TenantId) {
     # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-    Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Error -Category InvalidData
+    Write-Output "$($PSStyle.Foreground.Red)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
 Login-Az -TenantId $TenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
@@ -64,7 +64,7 @@ do {
     Wait-BackOff
 
     try {
-        Write-Output "`nDownloading '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Blue
+        Write-Output "`n$($PSStyle.Bold)Downloading '$Source' -> '$Destination'$($PSStyle.Reset)" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Blue
         Write-Output $azcopyCommand | Tee-Object -FilePath $logFile -Append | Write-Debug
         Invoke-Expression $azcopyCommand
 
@@ -85,9 +85,9 @@ do {
             if ($jobStatus -ieq "Completed") {
                 Reset-BackOff
                 Remove-Message $backOffMessage # Clear previous failures now we have been successful
-                Write-Output "`nCompleted '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Green
+                Write-Output "$($PSStyle.Foreground.Green)$($PSStyle.Bold)Completed$($PSStyle.Reset) '$Source' -> '$Destination'" | Tee-Object -FilePath $logFile -Append | Write-Host
             } else {
-                Write-Output "azcopy job '$jobId' status is '$jobStatus'" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                Write-Output "azcopy job '$jobId' status is '$($PSStyle.Foreground.Red)$jobStatus$($PSStyle.Reset)'" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
                 Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
                 Remove-Message $backOffMessage # Back off message superseeded by job result
             }
@@ -103,7 +103,7 @@ do {
         
         $exitCode = $LASTEXITCODE
         if ($exitCode -ne 0) {
-            Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Exit -ErrorId $exitCode
+            Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
             exit $exitCode
         }
         Write-Host " "
