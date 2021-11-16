@@ -262,6 +262,7 @@ function Sync-DirectoryToAzure (
                 # Fetch Job ID, so we can find azcopy log and append it to the script log file
                 $jobId = Get-AzCopyLatestJobId
                 if ($jobId -and ($jobId -ne $previousJobId)) {
+                    Remove-Message $backOffMessage # Back off message superseded by job result
                     $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
                     if (Test-Path $jobLogFile) {
                         if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
@@ -273,7 +274,6 @@ function Sync-DirectoryToAzure (
                     }
                     # Determine job status
                     $jobStatus = Get-AzCopyJobStatus -JobId $jobId
-                            Remove-Message $backOffMessage # Back off message superseded by job result
                     switch ($jobStatus) {
                         "Completed" {
                             Reset-BackOff
