@@ -273,14 +273,21 @@ function Sync-DirectoryToAzure (
                     }
                     # Determine job status
                     $jobStatus = Get-AzCopyJobStatus -JobId $jobId
-                    if ($jobStatus -ieq "Completed") {
-                        Reset-BackOff
-                        Remove-Message $backOffMessage # Clear previous failures now we have been successful
-                        Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
-                    } else {
-                        Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
-                        Remove-Message $backOffMessage # Back off message superseded by job result
-                        Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                            Remove-Message $backOffMessage # Back off message superseded by job result
+                    switch ($jobStatus) {
+                        "Completed" {
+                            Reset-BackOff
+                            Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
+                        }
+                        "CompletedWithErrors" {
+                            # This can happen when a drive is (temporarily) unplugged, let's retry
+                            Calculate-BackOff
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                        }
+                        default {
+                            Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                        }
                     }
                 } else {
                     Calculate-BackOff
