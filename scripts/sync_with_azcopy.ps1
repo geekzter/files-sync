@@ -25,12 +25,14 @@ if (!(Get-Command az -ErrorAction SilentlyContinue)) {
     exit
 }
 $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
-if (!$tenantId) {
-    # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-    Write-Output "$($PSStyle.Formatting.Error)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
-    exit
+if ($tenantId) {
+    Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+} else {
+    Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $LogFile -Append | Write-Host
+    Login-Az -SkipAzCopy # Rely on SAS tokens for AzCopy
+    $tenantId = $(az account show --query tenantId -o tsv)
 }
-Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+Write-Output "Using Azure Active Directory Tenant $tenantId" | Tee-Object -FilePath $LogFile -Append | Write-Verbose
 
 try {
     # Create list of storage accounts
@@ -53,7 +55,7 @@ try {
         Write-Information "Retrieving resource id/group and subscription for '$storageAccountName' using Azure resource graph..."
         $storageAccount = Get-StorageAccount $storageAccountName
         if (!$storageAccount) {
-            Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph, exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
+            Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph. Make sure you're logged into the right Azure Active Directory tenant (current: $tenantId). Exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
             exit
         }
         Write-Verbose "'$storageAccountName' has resource id '$($storageAccount.id)'"
