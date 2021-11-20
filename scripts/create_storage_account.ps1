@@ -11,7 +11,8 @@ param (
     [parameter(Mandatory=$true)][string]$ResourceGroup,
     [parameter(Mandatory=$false)][string]$Location="westeurope",
     [parameter(Mandatory=$false)][string[]]$Container,
-    [parameter(Mandatory=$false)][string]$SubscriptionId=$env:ARM_SUBSCRIPTION_ID,
+    [parameter(Mandatory=$false)][string]$SubscriptionId,
+    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
     [parameter(Mandatory=$false)][int]$MaxSasExpirationDays=30,
     [parameter(Mandatory=$false)][switch]$CreateServicePrincipal
@@ -21,14 +22,24 @@ Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
+$logFile = Create-LogFile
 if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $logFile -Append | Write-Warning
     exit
 }
 
+if ($TenantId) {
+    Login-Az -TenantId $TenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+} else {
+    Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $logFile -Append | Write-Host
+    Login-Az -SkipAzCopy # Rely on SAS tokens for AzCopy
+    $TenantId = $(az account show --query tenantId -o tsv)
+}
+Write-Output "Using Azure Active Directory Tenant $tenantId" | Tee-Object -FilePath $logFile -Append | Write-Verbose
+
 Login-Az -SkipAzCopy
 
-if ($Subscription) {
+if ($SubscriptionId) {
     az account set -s $SubscriptionId
 } else {
     $SubscriptionId=$(az account show --query id -o tsv)

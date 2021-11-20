@@ -24,7 +24,7 @@ if (!(Get-Command az -ErrorAction SilentlyContinue)) {
     Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
-$tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
+$tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID
 if ($tenantId) {
     Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
 } else {

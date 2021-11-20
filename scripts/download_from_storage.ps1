@@ -5,7 +5,7 @@ param (
     [parameter(Mandatory=$true)][string]$Destination,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7,
-    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID) 
+    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID) 
 
 Write-Debug $MyInvocation.line
 
