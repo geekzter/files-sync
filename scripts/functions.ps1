@@ -317,6 +317,7 @@ function Sync-DirectoryToAzure (
 function Sync-Directories (
     [parameter(Mandatory=$true)][string]$Source,   
     [parameter(Mandatory=$false)][string]$Pattern,   
+    [parameter(Mandatory=$false)][string[]]$Exclude,
     [parameter(Mandatory=$true)][string]$Target,   
     [parameter(Mandatory=$false)][switch]$Delete=$false,
     [parameter(Mandatory=$false)][switch]$DryRun,
@@ -350,6 +351,9 @@ function Sync-Directories (
     $rsyncArgs = "-auz --modify-window=1 --exclude-from=$(Join-Path $PSScriptRoot exclude.txt)"
     if ($Pattern) {
         $rsyncArgs += " --include=$Pattern --exclude=*"
+    }
+    foreach ($excludeExpression in $Exclude) {
+        $rsyncArgs += " --exclude=${excludeExpression}"
     }
     if ($Delete) {
         $rsyncArgs += " --delete"
