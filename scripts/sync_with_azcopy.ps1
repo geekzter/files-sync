@@ -5,52 +5,109 @@
 .DESCRIPTION 
     Update azcopy-settings.jsonc or use the GEEKZTER_AZCOPY_SETTINGS_FILE environment variable to point to a settings file in an alternate location
 #>
-#Requires -Version 7
+#Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_AZCOPY_SETTINGS_FILE ?? (Join-Path $PSScriptRoot azcopy-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
     [parameter(Mandatory=$false)][switch]$DryRun,
-    [parameter(Mandatory=$false)][switch]$SkipLogin
+    [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7
 ) 
 
 Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
-$logFile = (New-TemporaryFile).FullName
-$settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
+$logFile = Create-LogFile
+$settings = Get-Settings -SettingsFile $SettingsFile -LogFile $logFile
 
-if (!$SkipLogin) {
-    $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
-    if (!$tenantId) {
-        # With Tenant ID we can retrieve other data with resource graph, without it we're toast
-        Write-Output "Azure Active Directory Tenant ID not set, script cannot continue" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
-        exit
-    }
-    Login-Az -TenantId $tenantId
+if (!(Get-Command az -ErrorAction SilentlyContinue)) {
+    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+    exit
 }
+$tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID
+if ($tenantId) {
+    Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+} else {
+    Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $LogFile -Append | Write-Host
+    Login-Az -SkipAzCopy # Rely on SAS tokens for AzCopy
+    $tenantId = $(az account show --query tenantId -o tsv)
+}
+Write-Output "Using Azure Active Directory Tenant $tenantId" | Tee-Object -FilePath $LogFile -Append | Write-Verbose
 
 try {
+    # Create list of storage accounts
+    Write-Verbose "Creating list of target storage account(s)"
+    [System.Collections.ArrayList]$storageAccountNames = @()
     foreach ($directoryPair in $settings.syncPairs) {
+        # Parse storage account info
+        if ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
+            $storageAccountName = $matches["name"]
+            if (!$storageAccountNames.Contains($storageAccountName)) {
+                $storageAccountNames.Add($storageAccountName) | Out-Null
+            }
+        }
+    }
+
+    # Control plane access
+    $storageAccounts = @{}
+    foreach ($storageAccountName in $storageAccountNames) {
         # Get storage account info (subscription, resource group) with resource graph
-        if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/[\w|/]+")) {
-            Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $LogFile -Append | StoreAndWrite-Warning
+        Write-Information "Retrieving resource id/group and subscription for '$storageAccountName' using Azure resource graph..."
+        $storageAccount = Get-StorageAccount $storageAccountName
+        if (!$storageAccount) {
+            Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph. Make sure you're logged into the right Azure Active Directory tenant (current: $tenantId). Exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
+            exit
+        }
+        Write-Verbose "'$storageAccountName' has resource id '$($storageAccount.id)'"
+
+        # Add firewall rule on storage account
+        Open-Firewall -StorageAccountName $storageAccountName `
+                      -ResourceGroupName $storageAccount.resourceGroup `
+                      -SubscriptionId $storageAccount.subscriptionId
+
+        # Generate SAS
+        $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
+        $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
+                                               -ResourceGroupName $storageAccount.resourceGroup `
+                                               -SubscriptionId $storageAccount.subscriptionId `
+                                               -SasTokenValidityDays $SasTokenValidityDays `
+                                               -Write `
+                                               -Delete:$delete
+        $storageAccount | Add-Member -NotePropertyName Token -NotePropertyValue $storageAccountToken
+        $storageAccounts.add($storageAccountName,$storageAccount)
+    }
+
+    # Data plane access
+    foreach ($directoryPair in $settings.syncPairs) {
+        if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*")) {
+            Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
             continue
         }
         $storageAccountName = $matches["name"]
-        $storageAccount = Get-StorageAccount $storageAccountName
-
-        # Add firewall rule on storage account
-        Open-Firewall -StorageAccountName $storageAccountName -ResourceGroupName $storageAccount.resourceGroup -SubscriptionId $storageAccount.subscriptionId
+        $storageAccount = $storageAccounts[$storageAccountName]
 
         # Start syncing
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
-        Sync-DirectoryToAzure -Source $directoryPair.source -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
+        Sync-DirectoryToAzure -Source $directoryPair.source `
+                              -Target $directoryPair.target `
+                              -Token $storageAccount.Token `
+                              -Delete:$delete `
+                              -DryRun:$DryRun `
+                              -LogFile $logFile
     }
 } finally {
+    # Close firewall (remove all rules)
+    if ($storageAccounts) {
+        foreach ($storageAccount in $storageAccounts.Values) {
+            Close-Firewall -StorageAccountName $storageAccount.name `
+                        -ResourceGroupName $storageAccount.resourceGroup `
+                        -SubscriptionId $storageAccount.subscriptionId        
+        }
+    }
+
     Write-Host " "
     List-StoredWarnings
-    Write-Host "Configuration file: '$SettingsFile'"
-    Write-Host "Log file: '$logFile'"
+    Write-Host "Settings file used is located at: '$SettingsFile'"
+    Write-Host "Script log file is located at: '$logFile'"
     Write-Host " "
 }

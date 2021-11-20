@@ -5,7 +5,7 @@
 .DESCRIPTION 
     Update rsync-settings.jsonc or use the GEEKZTER_RSYNC_SETTINGS_FILE environment variable to point to a settings file in an alternate location
 #>
-#Requires -Version 7
+#Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_RSYNC_SETTINGS_FILE ?? (Join-Path $PSScriptRoot rsync-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
@@ -16,8 +16,8 @@ Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
-$logFile = (New-TemporaryFile).FullName
-$settings = Get-Settings -SettingsFile $SettingsFile -LogFile logFile
+$logFile = Create-LogFile
+$settings = Get-Settings -SettingsFile $SettingsFile -LogFile $logFile
 
 try {
     foreach ($directoryPair in $settings.syncPairs) {
@@ -28,7 +28,7 @@ try {
 } finally {
     Write-Host " "
     List-StoredWarnings
-    Write-Host "Configuration file: '$SettingsFile'"
-    Write-Host "Log file: '$logFile'"
+    Write-Host "Settings file used is located at: '$SettingsFile'"
+    Write-Host "Script log file is located at: '$logFile'"
     Write-Host " "
 }
