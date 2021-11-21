@@ -67,3 +67,4 @@ See adapt the sample [sample](./scripts/azcopy-settings.jsonc) and pass its path
 ```powershell
 sync_with_azcopy.ps1 -SettingsFile /path/to/settings.json
 ```
+This script separates Azure control plane and data plane operations, with the latter happening after the former. Once azcopy has started, control plane access is no longer required and SAS tokens will be used for authentication.
