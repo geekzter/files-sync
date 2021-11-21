@@ -31,6 +31,10 @@ Login-Az -TenantId ([ref]$SourceTenantId) -LogFile $logFile -SkipAzCopy
 
 # Retrieve storage account details using resource graph
 $sourceStorageAccount = Get-StorageAccount $SourceName
+if (!$sourceStorageAccount) {
+    Write-Output "Unable to retrieve resource id/group and subscription for '$SourceName' using Azure resource graph. Make sure you're logged into the right Azure Active Directory tenant (current: $SourceTenantId). Exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
+    exit
+}
 $sourceStorageAccount | Format-List | Tee-Object -FilePath $LogFile -Append | Write-Debug
 
 # Add firewall rule on source storage account
@@ -45,7 +49,7 @@ az storage container list --account-name $SourceName `
                           --query "[].name" `
                           -o json | ConvertFrom-Json | Set-Variable sourceContainers
 
-# Prepare data plane operations for source account
+# Prepare source data plane operations
 $sourceBlobBaseUrl = $(az storage account show -n $SourceName -g $sourceStorageAccount.resourceGroup --subscription $sourceStorageAccount.subscriptionId --query "primaryEndpoints.blob" -o tsv)
 $sourceAccountToken = Create-SasToken -StorageAccountName $SourceName `
                                       -ResourceGroupName $sourceStorageAccount.resourceGroup `
@@ -89,7 +93,7 @@ Open-Firewall -StorageAccountName $TargetName `
               -ResourceGroupName $TargetResourceGroup `
               -SubscriptionId $TargetSubscriptionId
 
-# Prepare data plane operations for target account
+# Prepare target data plane operations
 $targetBlobBaseUrl = $(az storage account show -n $TargetName -g $TargetResourceGroup --subscription $TargetSubscriptionId --query "primaryEndpoints.blob" -o tsv)
 $targetAccountToken = Create-SasToken -StorageAccountName $TargetName `
                                       -ResourceGroupName $TargetResourceGroup `
