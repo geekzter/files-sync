@@ -1,4 +1,8 @@
 #!/usr/bin/env pwsh
+<#
+.SYNOPSIS 
+    Download from Azure storage account
+#>
 #Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$true)][string]$Source,

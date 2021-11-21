@@ -3,7 +3,7 @@
 .SYNOPSIS 
     Clones a storage account created by create_storage_account.ps1
 .DESCRIPTION 
-    
+    Creates a copy of a storage account, creates blob containers with the same names as the source, and syncs all blobs from the source storage account. As azcopy copies these files within Azure, speeds are very high (~ 10Gb/s for standard storage)
 #>
 #Requires -Version 7.2
 param ( 
