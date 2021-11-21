@@ -59,7 +59,7 @@ You can work with pre-existing storage accounts, or you can use the [create_stor
 create_storage_account.ps1 -Name mystorage `
                            -ResourceGroup files-sync `
                            -Location westeurope `
-                           -Container pictures, video
+                           -Container lightroom, pictures, video
 ```
 
 ### Syncing with Azure Storage
