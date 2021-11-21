@@ -20,19 +20,10 @@ Write-Debug $MyInvocation.line
 $logFile = Create-LogFile
 $settings = Get-Settings -SettingsFile $SettingsFile -LogFile $logFile
 
-if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
-    exit
-}
+Validate-AzCli $logFile
+
 $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID
-if ($tenantId) {
-    Login-Az -TenantId $tenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
-} else {
-    Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $LogFile -Append | Write-Host
-    Login-Az -SkipAzCopy # Rely on SAS tokens for AzCopy
-    $tenantId = $(az account show --query tenantId -o tsv)
-}
-Write-Output "Using Azure Active Directory Tenant $tenantId" | Tee-Object -FilePath $LogFile -Append | Write-Verbose
+Login-Az -TenantId ([ref]$tenantID) -LogFile $logFile -SkipAzCopy
 
 try {
     # Create list of storage accounts

@@ -23,28 +23,9 @@ Write-Debug $MyInvocation.line
 . (Join-Path $PSScriptRoot functions.ps1)
 
 $logFile = Create-LogFile
-if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $logFile -Append | Write-Warning
-    exit
-}
 
-if ($TenantId) {
-    Login-Az -TenantId $TenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
-} else {
-    Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $logFile -Append | Write-Host
-    Login-Az -SkipAzCopy # Rely on SAS tokens for AzCopy
-    $TenantId = $(az account show --query tenantId -o tsv)
-}
-Write-Output "Using Azure Active Directory Tenant $tenantId" | Tee-Object -FilePath $logFile -Append | Write-Verbose
-
-Login-Az -SkipAzCopy
-
-if ($SubscriptionId) {
-    az account set -s $SubscriptionId
-} else {
-    $SubscriptionId=$(az account show --query id -o tsv)
-}
-Write-Information "Using subscription '$(az account list --query "[?id=='${SubscriptionId}'].name" -o tsv)'"
+Validate-AzCli $logFile
+Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
 
 $signedInObjectId=$(az ad signed-in-user show --query objectId -o tsv)
 $tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
@@ -76,7 +57,7 @@ if ($CreateServicePrincipal) {
 }
 
 # Create or update Storage Account
-Write-Verbose "Creating/updaing storage account '$Name'..."
+Write-Verbose "Creating/updating storage account '$Name'..."
 az storage account create -n $Name -g $ResourceGroup -l $Location --subscription $SubscriptionId `
                           --access-tier hot `
                           --allow-blob-public-access false `

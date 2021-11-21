@@ -36,7 +36,7 @@ if (!$TenantId) {
     Write-Output "$($PSStyle.Formatting.Error)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
-Login-Az -TenantId $TenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
 
 $storageAccount = Get-StorageAccount $storageAccountName
 $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
