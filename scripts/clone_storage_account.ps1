@@ -103,18 +103,11 @@ $targetAccountToken = Create-SasToken -StorageAccountName $TargetName `
 
 # Data plane operations
 foreach ($container in $sourceContainers) {
-    $previousJobId = Get-AzCopyLatestJobId
-
-    $azcopyArgs = " --recursive --log-level $(Get-AzCopyLogLevel)"
-    if ($DryRun) {
-        $azcopyArgs += " --dry-run"
-    }
-    $source = "${sourceBlobBaseUrl}${container}/"
-    $target = "${targetBlobBaseUrl}${container}/"
-    $azcopyCommand = "azcopy sync '${source}?${sourceAccountToken}' '${target}?${targetAccountToken}' $azcopyArgs"
-
-    Execute-AzCopy -AzCopyCommand $azcopyCommand `
-                   -Source $source `
-                   -Target $target `
-                   -LogFile $logFile
+    Sync-AzureToAzure -Source "${sourceBlobBaseUrl}${container}/" `
+                      -SourceToken $sourceAccountToken `
+                      -Target "${targetBlobBaseUrl}${container}/" `
+                      -TargetToken $targetAccountToken `
+                      -Delete:$delete `
+                      -DryRun:$DryRun `
+                      -LogFile $logFile
 }

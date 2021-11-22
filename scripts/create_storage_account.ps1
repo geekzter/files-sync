@@ -9,7 +9,7 @@
 param ( 
     [parameter(Mandatory=$true)][string]$Name,
     [parameter(Mandatory=$true)][string]$ResourceGroup,
-    [parameter(Mandatory=$false)][string]$Location="westeurope",
+    [parameter(Mandatory=$false)][string]$Location=$env:AZURE_DEFAULTS_LOCATION,
     [parameter(Mandatory=$false)][string[]]$Container,
     [parameter(Mandatory=$false)][string]$SubscriptionId,
     [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
@@ -71,14 +71,6 @@ az storage account create -n $Name -g $ResourceGroup -l $Location --subscription
                           --query id -o tsv | Set-Variable storageAccountId
 Write-Host "Created/updated storage account $storageAccountId"
 
-# Add resource lock
-Write-Verbose "Locking access to '$Name' so it can't be deleted..."
-az lock create --lock-type CanNotDelete `
-               --name "${Name}-lock" `
-               --resource $storageAccountId `
-               -o none
-Write-Host "Locked access to '$Name' so it can't be deleted"
-
 Write-Verbose "Creating SAS expiration policy for '$Name' ($MaxSasExpirationDays days)"
 az storage account update --name $Name `
                           --resource-group $ResourceGroup `
@@ -114,6 +106,17 @@ foreach ($cont in $Container) {
                                 -o none
     Write-Host "Created container '$cont' in storage account '$Name'..."
 }
+
+# Add resource lock
+Write-Verbose "Locking access to '$Name' so it can't be deleted..."
+az lock create --lock-type CanNotDelete `
+               --name "${Name}-lock" `
+               --resource $Name `
+               --resource-type "Microsoft.Storage/storageAccounts" `
+               -g $ResourceGroup `
+               --subscription $SubscriptionId `
+               -o none
+Write-Host "Locked access to '$Name' so it can't be deleted"
 
 # Get urls to storage containers
 $blobBaseUrl = $(az storage account show -n $Name -g $ResourceGroup --subscription $SubscriptionId --query "primaryEndpoints.blob" -o tsv)

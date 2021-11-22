@@ -53,6 +53,23 @@ function Open-Firewall (
     }
 }
 
+function Build-AzCopyArgs (
+    [parameter(Mandatory=$false)][switch]$Delete,
+    [parameter(Mandatory=$false)][switch]$DryRun
+) {
+    $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
+    $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
+    if ($Delete) {
+        $azcopyArgs += " --delete-destination"
+    }
+    if ($DryRun) {
+        $azcopyArgs += " --dry-run"
+    }
+    $azcopyArgs += " --log-level $(Get-AzCopyLogLevel)"
+
+    return $azcopyArgs
+}
+
 function Close-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
@@ -285,8 +302,26 @@ function Login-Az (
     }
 }
 
+function Sync-AzureToAzure (
+    [parameter(Mandatory=$true)][string]$Source,      
+    [parameter(Mandatory=$false)][string]$SourceToken,   
+    [parameter(Mandatory=$true)][string]$Target,   
+    [parameter(Mandatory=$false)][string]$TargetToken,   
+    [parameter(Mandatory=$false)][switch]$Delete,
+    [parameter(Mandatory=$false)][switch]$DryRun,
+    [parameter(Mandatory=$true)][string]$LogFile
+) {
+    $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
+    $azcopyCommand = "azcopy sync '${Source}?${SourceToken}' '${Target}?${TargetToken}' $azcopyArgs"
+
+    Execute-AzCopy -AzCopyCommand $azcopyCommand `
+                   -Source $source `
+                   -Target $target `
+                   -LogFile $LogFile
+}
+
 function Sync-DirectoryToAzure (
-    [parameter(Mandatory=$true)][string]$Source,   
+    [parameter(Mandatory=$true)][string]$Source,      
     [parameter(Mandatory=$true)][string]$Target,   
     [parameter(Mandatory=$false)][string]$Token,   
     [parameter(Mandatory=$false)][switch]$Delete,
@@ -306,19 +341,7 @@ function Sync-DirectoryToAzure (
         return
     }
 
-    # Get latest Job ID, so we can detect whether a job was created later
-    $previousJobId = Get-AzCopyLatestJobId
-
-    $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
-    $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
-    if ($Delete) {
-        $azcopyArgs += " --delete-destination"
-    }
-    if ($DryRun) {
-        $azcopyArgs += " --dry-run"
-    }
-    $azcopyArgs += " --log-level $(Get-AzCopyLogLevel)"
-
+    $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
     if ($Token) {
         $azCopyTarget = "${Target}?${Token}"
     } else {

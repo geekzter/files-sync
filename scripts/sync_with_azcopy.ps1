@@ -31,6 +31,12 @@ try {
     [System.Collections.ArrayList]$storageAccountNames = @()
     foreach ($directoryPair in $settings.syncPairs) {
         # Parse storage account info
+        if ($directoryPair.source -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
+            $storageAccountName = $matches["name"]
+            if (!$storageAccountNames.Contains($storageAccountName)) {
+                $storageAccountNames.Add($storageAccountName) | Out-Null
+            }
+        }
         if ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
             $storageAccountName = $matches["name"]
             if (!$storageAccountNames.Contains($storageAccountName)) {
@@ -70,29 +76,47 @@ try {
 
     # Data plane access
     foreach ($directoryPair in $settings.syncPairs) {
-        if (-not ($directoryPair.target -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*")) {
+        if ($directoryPair.target -notmatch "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
             Write-Output "Target '$Target' is not a storage URL, skipping" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
             continue
         }
-        $storageAccountName = $matches["name"]
-        $storageAccount = $storageAccounts[$storageAccountName]
+        $targetStorageAccountName = $matches["name"]
+        $targetStorageAccount = $storageAccounts[$targetStorageAccountName]
 
         # Start syncing
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
-        Sync-DirectoryToAzure -Source $directoryPair.source `
+
+        if ($($directoryPair.source) -match "https://(?<name>\w+)\.blob.core.windows.net/(?<container>\w+)/?[\w|/]*") {
+            # Source is a storage account
+            $sourceStorageAccountName = $matches["name"]
+            $sourceStorageAccount = $storageAccounts[$sourceStorageAccountName]
+            Sync-AzureToAzure -Source $directoryPair.source `
+                              -SourceToken $sourceStorageAccount.Token `
                               -Target $directoryPair.target `
-                              -Token $storageAccount.Token `
+                              -TargetToken $targetStorageAccount.Token `
                               -Delete:$delete `
                               -DryRun:$DryRun `
                               -LogFile $logFile
+        } elseif (Test-Path $($directoryPair.source)) {
+            # Source is a directory
+            Sync-DirectoryToAzure -Source $directoryPair.source `
+                                  -Target $directoryPair.target `
+                                  -Token $targetStorageAccount.Token `
+                                  -Delete:$delete `
+                                  -DryRun:$DryRun `
+                                  -LogFile $logFile
+        } else {
+            Write-Output "Source '$($directoryPair.source)' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+            return
+        }
     }
 } finally {
     # Close firewall (remove all rules)
     if ($storageAccounts) {
         foreach ($storageAccount in $storageAccounts.Values) {
             Close-Firewall -StorageAccountName $storageAccount.name `
-                        -ResourceGroupName $storageAccount.resourceGroup `
-                        -SubscriptionId $storageAccount.subscriptionId        
+                           -ResourceGroupName $storageAccount.resourceGroup `
+                           -SubscriptionId $storageAccount.subscriptionId        
         }
     }
 
