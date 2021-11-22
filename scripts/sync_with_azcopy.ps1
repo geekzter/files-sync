@@ -107,7 +107,7 @@ try {
                                   -LogFile $logFile
         } else {
             Write-Output "Source '$($directoryPair.source)' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-            return
+            continue
         }
     }
 } finally {
