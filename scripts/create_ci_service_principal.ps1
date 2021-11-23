@@ -1,9 +1,9 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS 
-    Creates a storage account prepared for sync
+    Creates a Service Principal for GitHub workflow
 .DESCRIPTION 
-    Creates a storage account configured with: soft delete, firewall opened only to client ip address, and the 'Data Contributor' role configured for currently logged on user/principal
+    Creates a Service Principal with federated credentialss, so no Service Principal secrets have to maintained
 #>
 #Requires -Version 7.2
 param ( 
@@ -107,17 +107,17 @@ foreach ($subject in $subjects) {
 Write-Host "Created federation subjects for GitHub repo '${repoName}'"
 
 if (Get-Command gh -ErrorAction SilentlyContinue) {
-    Write-Host "Defining GitHub $repoName secrets ARM_CLIENT_ID, ARM_TENANT_ID & ARM_SUBSCRIPTION_ID..."
+    Write-Host "Setting GitHub $repoName secrets ARM_CLIENT_ID, ARM_TENANT_ID & ARM_SUBSCRIPTION_ID..."
     gh auth login -h $gitHost
-    Write-Debug "Defining GitHub workflow secret ARM_CLIENT_ID='$appId'..."
+    Write-Debug "Setting GitHub workflow secret ARM_CLIENT_ID='$appId'..."
     gh secret set ARM_CLIENT_ID -b $appId --repo $repoName
-    Write-Debug "Defining GitHub workflow secret ARM_TENANT_ID='$TenantId'..."
+    Write-Debug "Setting GitHub workflow secret ARM_TENANT_ID='$TenantId'..."
     gh secret set ARM_TENANT_ID -b $TenantId --repo $repoName
-    Write-Debug "Defining GitHub workflow secret ARM_SUBSCRIPTION_ID='$SubscriptionId'..."
+    Write-Debug "Setting GitHub workflow secret ARM_SUBSCRIPTION_ID='$SubscriptionId'..."
     gh secret set ARM_SUBSCRIPTION_ID -b $SubscriptionId --repo $repoName
 } else {
     # Show workflow configuration information
-    Write-Host "Define GitHub workflow secret ARM_CLIENT_ID='$appId'"
-    Write-Host "Define GitHub workflow secret ARM_TENANT_ID='$TenantId'"
-    Write-Host "Define GitHub workflow secret ARM_SUBSCRIPTION_ID='$SubscriptionId'"
+    Write-Host "Set GitHub workflow secret ARM_CLIENT_ID='$appId' in $repoName"
+    Write-Host "Set GitHub workflow secret ARM_TENANT_ID='$TenantId' in $repoName"
+    Write-Host "Set GitHub workflow secret ARM_SUBSCRIPTION_ID='$SubscriptionId' in $repoName"
 }
