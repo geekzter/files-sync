@@ -38,19 +38,19 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v2
 
-    # # ubuntu Az CLI installation 
-    # - name: Install CLI-beta
-    #   run: |
-    #     cd ../..
-    #     CWD="$(pwd)"
-    #     python3 -m venv oidc-venv
-    #     . oidc-venv/bin/activate
-    #     echo "activated environment" 
-    #     python3 -m pip install --upgrade pip
-    #     echo "started installing cli beta" 
-    #     pip install -q --extra-index-url https://azcliprod.blob.core.windows.net/beta/simple/ azure-cli
-    #     echo "installed cli beta"    
-    #     echo "$CWD/oidc-venv/bin" >> $GITHUB_PATH   
+    # ubuntu Az CLI installation 
+    - name: Install CLI-beta
+      run: |
+        cd ../..
+        CWD="$(pwd)"
+        python3 -m venv oidc-venv
+        . oidc-venv/bin/activate
+        echo "activated environment" 
+        python3 -m pip install --upgrade pip
+        echo "started installing cli beta" 
+        pip install -q --extra-index-url https://azcliprod.blob.core.windows.net/beta/simple/ azure-cli
+        echo "installed cli beta"    
+        echo "$CWD/oidc-venv/bin" >> $GITHUB_PATH   
     - name: Use Azure CLI
       uses: azure/login@v1.4.0
       with:
