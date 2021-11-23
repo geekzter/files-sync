@@ -30,9 +30,9 @@ name: ci
 jobs:
   syncTest:
     name: Create storage, sync & destroy
-    defaults:
-      run:
-        working-directory: scripts
+    # defaults:
+    #   run:
+    #     working-directory: scripts
     runs-on: ubuntu-latest
     steps:
     - name: Checkout source
@@ -60,11 +60,11 @@ jobs:
 
     - name: Create Storage Account
       run: | 
-        ./create_storage_account.ps1 -Container artifacts `
-                                     -Name "filesyncci${env:GITHUB_RUN_ID}" `
-                                     -ResourceGroup "file-sync-ci-rg${env:GITHUB_RUN_ID}" `
-                                     -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }} `
-                                     -Verbose
+        ./scripts/create_storage_account.ps1 -Container artifacts `
+                                             -Name "filesyncci${env:GITHUB_RUN_ID}" `
+                                             -ResourceGroup "file-sync-ci-rg${env:GITHUB_RUN_ID}" `
+                                             -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }} `
+                                             -Verbose
       shell: pwsh
 
     # - name: Clean Up
