@@ -28,7 +28,11 @@ Validate-AzCli $logFile
 Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
 
 $signedInObjectId=$(az ad signed-in-user show --query objectId -o tsv)
-$tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
+[System.Collections.ArrayList]$tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
+if ($env:GITHUB_RUN_ID) {
+    # Used in CI to clean up resources
+    $tags.Add("run-id=${env:GITHUB_RUN_ID}")
+}
 
 # Create or update resource group
 Write-Verbose "Creating resource group '$ResourceGroup'..."
