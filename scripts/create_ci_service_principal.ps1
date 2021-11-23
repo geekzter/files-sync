@@ -32,7 +32,7 @@ if ($SubscriptionId) {
     $SubscriptionId = $(az account show --query id -o tsv)
 }
 
-# Prepare federation claims
+# Prepare federation subjects
 $remoteRepoUrl = $(git config --get remote.origin.url)
 if ($remoteRepoUrl -match "https://(?<host>[\w\.]+)/(?<repo>.+).git$") {
     $gitHost = $matches["host"]
@@ -42,12 +42,12 @@ if ($remoteRepoUrl -match "https://(?<host>[\w\.]+)/(?<repo>.+).git$") {
     exit
 }
 $currentBranch = $(git rev-parse --abbrev-ref HEAD)
-$claims = [System.Collections.ArrayList]@("repo:${repoName}:ref:refs/heads/main",`
+$subjects = [System.Collections.ArrayList]@("repo:${repoName}:ref:refs/heads/main",`
             "repo:${repoName}:pull-request",`
             "repo:${repoName}:ref:refs/tags/azure"`
 )
 if ($currentBranch -ne "main") {
-    $claims.Add("repo:${repoName}:ref:refs/heads/${currentBranch}") | Out-Null
+    $subjects.Add("repo:${repoName}:ref:refs/heads/${currentBranch}") | Out-Null
 }
 
 # Create Service Principal
@@ -73,16 +73,16 @@ az rest --method GET `
         --headers '{\""Content-Type\"": \""application/json\""}' `
         --uri "$getUrl" `
         --body "@${requestBodyFile}" `
-        --query "value[].name" | ConvertFrom-Json | Set-Variable federations
+        --query "value[].subject" | ConvertFrom-Json | Set-Variable federatedSubjects
 
-# Create federation claims
-foreach ($claim in $claims) {
-    $claimName = ($claim -replace ":|/","-")
-    if (!$federations -or !$federations.Contains($claimName)) {
+# Create federation subjects
+foreach ($subject in $subjects) {
+    if (!$federatedSubjects -or !$federatedSubjects.Contains($subject)) {
+        $federationName = ($subject -replace ":|/","-")
 
         Get-Content (Join-Path $PSScriptRoot "federated-dentity-request-template.jsonc") | ConvertFrom-Json | Set-Variable request
-        $request.name = $claimName
-        $request.subject = $claim
+        $request.name = $federationName
+        $request.subject = $subject
         $request | Format-List | Out-String | Write-Debug
 
         # Pass JSON per file as per best practice 
@@ -93,18 +93,18 @@ foreach ($claim in $claims) {
 
         $postUrl = "https://graph.microsoft.com/beta/applications/${appObjectId}/federatedIdentityCredentials"
         Write-Debug "postUrl: $postUrl"
-        Write-Host "Adding federation for ${claim}..."
+        Write-Host "Adding federation for ${subject}..."
         az rest --method POST `
                 --headers '{\""Content-Type\"": \""application/json\""}' `
                 --uri "$postUrl" `
                 --body "@${requestBodyFile}" | Set-Variable result
         if ($lastexitcode -ne 0) {
-            Write-Error "Request to add claim '$claim' failed, exiting"
+            Write-Error "Request to add subject '$subject' failed, exiting"
             exit
         }
     }
 }
-Write-Host "Created federation claims for GitHub repo '${repoName}'"
+Write-Host "Created federation subjects for GitHub repo '${repoName}'"
 
 if (Get-Command gh -ErrorAction SilentlyContinue) {
     Write-Host "Defining GitHub $repoName secrets ARM_CLIENT_ID, ARM_TENANT_ID & ARM_SUBSCRIPTION_ID..."
