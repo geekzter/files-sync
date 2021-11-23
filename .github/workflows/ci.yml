@@ -1,3 +1,5 @@
+name: ci
+
 # Controls when the action will run. 
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
@@ -24,8 +26,9 @@ env:
   AZCOPY_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
   AZURE_DEFAULTS_LOCATION: westeurope
 
-
-name: ci
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   syncTest:
@@ -38,21 +41,21 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v2
 
-    # ubuntu Az CLI installation 
-    - name: Install CLI-beta
-      run: |
-        cd ../..
-        CWD="$(pwd)"
-        python3 -m venv oidc-venv
-        . oidc-venv/bin/activate
-        echo "activated environment" 
-        python3 -m pip install --upgrade pip
-        echo "started installing cli beta" 
-        pip install -q --extra-index-url https://azcliprod.blob.core.windows.net/beta/simple/ azure-cli
-        echo "installed cli beta"    
-        echo "$CWD/oidc-venv/bin" >> $GITHUB_PATH   
+    # # ubuntu Az CLI installation 
+    # - name: Install CLI-beta
+    #   run: |
+    #     cd ../..
+    #     CWD="$(pwd)"
+    #     python3 -m venv oidc-venv
+    #     . oidc-venv/bin/activate
+    #     echo "activated environment" 
+    #     python3 -m pip install --upgrade pip
+    #     echo "started installing cli beta" 
+    #     pip install -q --extra-index-url https://azcliprod.blob.core.windows.net/beta/simple/ azure-cli
+    #     echo "installed cli beta"    
+    #     echo "$CWD/oidc-venv/bin" >> $GITHUB_PATH   
     - name: Use Azure CLI
-      uses: azure/login@v1.4.0
+      uses: azure/login@v1.4.1
       with:
         client-id: ${{ secrets.ARM_CLIENT_ID }}
         tenant-id: ${{ secrets.ARM_TENANT_ID }}
