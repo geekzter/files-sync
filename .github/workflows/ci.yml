@@ -25,7 +25,7 @@ env:
   AZURE_DEFAULTS_LOCATION: westeurope
 
 
-name: ci-vanilla
+name: ci
 
 jobs:
   syncTest:
