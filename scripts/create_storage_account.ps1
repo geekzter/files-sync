@@ -47,7 +47,7 @@ az role assignment create --role $role `
                           --assignee-object-id $signedInObjectId `
                           --assignee-principal-type $(az account show --query user.type -o tsv) `
                           -g $ResourceGroup --subscription $SubscriptionId `
-                          -o none
+                          -o json
 
 # Create Service Principal
 if ($CreateServicePrincipal) {
@@ -81,7 +81,7 @@ az storage account update --name $Name `
                           --resource-group $ResourceGroup `
                           --sas-expiration-period "${MaxSasExpirationDays}.00:00:00" `
                           --subscription $SubscriptionId `
-                          -o none
+                          -o json
 Write-Host "Created SAS expiration policy for '$Name' ($MaxSasExpirationDays days)"
 
 # Enable soft delete
@@ -94,7 +94,7 @@ az storage account blob-service-properties update `
                           --account-name $Name `
                           --resource-group $ResourceGroup `
                           --subscription $SubscriptionId `
-                          -o none
+                          -o json
 
 # Add firewall rule on storage account
 Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
@@ -114,7 +114,7 @@ foreach ($cont in $Container) {
                                 --public-access off `
                                 --resource-group $ResourceGroup `
                                 --subscription $SubscriptionId `
-                                -o none
+                                -o json
     Write-Host "Created container '$cont' in storage account '$Name'..."
 }
 
@@ -126,7 +126,7 @@ az lock create --lock-type CanNotDelete `
                --resource-type "Microsoft.Storage/storageAccounts" `
                -g $ResourceGroup `
                --subscription $SubscriptionId `
-               -o none
+               -o json
 Write-Host "Locked access to '$Name' so it can't be deleted"
 
 # Get urls to storage containers
