@@ -80,7 +80,7 @@ jobs:
 
         # Write-Host "az ad signed-in-user"
         # az ad signed-in-user show -o json
-        . /scripts/functions.ps1 
+        . ./scripts/functions.ps1 
         Get-LoggedInPrincipal
       shell: pwsh
 
