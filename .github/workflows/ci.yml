@@ -61,38 +61,55 @@ jobs:
         tenant-id: ${{ secrets.ARM_TENANT_ID }}
         subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
 
+    - name: Prepare environment variables
+      run: | 
+        Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
+        Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: List environment variables
+      run: | 
+        # List environment variables
+        Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_* | Sort-Object -Property Name
+      shell: pwsh
+
+    - name: Logged in identity information
+      run: | 
+        Write-Host "az account"
+        az account show -o json
+
+        Write-Host "az ad signed-in-user"
+        az ad signed-in-user show -o json
+      shell: pwsh
+
     - name: Create Storage Account
       run: | 
         ./scripts/create_storage_account.ps1 -Container artifacts `
-                                             -Name "filesyncci${env:GITHUB_RUN_ID}" `
-                                             -ResourceGroup "file-sync-ci-rg${env:GITHUB_RUN_ID}" `
+                                             -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
+                                             -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                              -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }} `
                                              -Verbose
       shell: pwsh
 
-    # - name: Clean Up
-    #   if: ${{ always() }}
-    #   run: |
-    #     $ErrorActionPreference = "Continue"
-    #     Set-Location (Join-Path $env:GITHUB_WORKSPACE terraform) # Task does not support 'working-directory' property
+    - name: Clean Up
+      if: ${{ always() }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        if (!$env:GITHUB_RUN_ID) {
+          throw "GITHUB_RUN_ID not set, we can't identify resources to be cleaned up"
+        }
+        if (!$env:FILES_SYNC_RESOURCE_GROUP) {
+          throw "FILES_SYNC_RESOURCE_GROUP not set, we can't identify resources to be cleaned up"
+        }
+        $ErrorActionPreference = "Continue"
 
-    #     # Remove resource locks first
-    #     $resourceLocksJSON = $(terraform output -json resource_locks 2>$null)
-    #     if ($resourceLocksJSON -and ($resourceLocksJSON -match "^\[.*\]$")) {
-    #       $resourceLocks = ($resourceLocksJSON | ConvertFrom-JSON)
-    #       az resource lock delete --ids $resourceLocks --verbose
-    #     }
+        # Remove resource locks first
+        az lock list -g $env:FILES_SYNC_RESOURCE_GROUP --query [].id -o tsv | Set-Variable resourceLockIds
+        if ($resourceLockIds) {
+          Write-Host "Removing resource locks $resourceLockIds..."
+          az lock delete --ids $resourceLockIds
+        }
 
-    #     # Build JMESPath expression
-    #     $repository = ($env:GITHUB_REPOSITORY).Split("/")[-1]
-    #     $tagQuery = "[?tags.repository == '${repository}' && tags.workspace == '${env:TF_WORKSPACE}' && tags.runid == '${env:GITHUB_RUN_ID}' && properties.provisioningState != 'Deleting'].id"
-
-    #     Write-Host "Removing resource group identified by `"$tagQuery`"..."
-    #     $resourceGroupIDs = $(az group list --query "$tagQuery" -o tsv)
-    #     if ($resourceGroupIDs) {
-    #       Write-Host "az resource delete --ids ${resourceGroupIDs}..."
-    #       az resource delete --ids $resourceGroupIDs --verbose
-    #     } else {
-    #       Write-Host "Nothing to remove"
-    #     }
-    #   shell: pwsh
+        Write-Host "Removing resource group '${env:FILES_SYNC_RESOURCE_GROUP}'..."
+        az group delete -g $env:FILES_SYNC_RESOURCE_GROUP -y --subscription ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      shell: pwsh
