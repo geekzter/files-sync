@@ -75,11 +75,13 @@ jobs:
 
     - name: Logged in identity information
       run: | 
-        Write-Host "az account"
-        az account show -o json
+        # Write-Host "az account"
+        # az account show -o json
 
-        Write-Host "az ad signed-in-user"
-        az ad signed-in-user show -o json
+        # Write-Host "az ad signed-in-user"
+        # az ad signed-in-user show -o json
+        . /scripts/functions.ps1 
+        Get-LoggedInPrincipal
       shell: pwsh
 
     - name: Create Storage Account
