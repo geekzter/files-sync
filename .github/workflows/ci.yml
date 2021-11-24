@@ -112,9 +112,6 @@ jobs:
           az lock delete --ids $resourceLockIds
         }
 
-        Write-Host "Removing resource group '${env:FILES_SYNC_RESOURCE_GROUP}'..."
-        az group delete -g $env:FILES_SYNC_RESOURCE_GROUP -y --subscription ${{ secrets.ARM_SUBSCRIPTION_ID }}
-
         # Build JMESPath expression
         $tagQuery = "[?tags.applications == 'files-sync' && tags.run-id == '${env:GITHUB_RUN_ID}' && properties.provisioningState != 'Deleting'].id"
         Write-Host "Removing resource group identified by `"$tagQuery`"..."

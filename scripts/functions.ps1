@@ -249,10 +249,10 @@ function Get-LoggedInPrincipal () {
         default {
             Write-Warning "Could not determine objectId for user type '$($user.Type)'"
         }
-        Write-Debug "objectId: $objectId"
-        $principal | Add-Member -MemberType NoteProperty -Name objectId -Value $objectId -Force
-        $principal | Format-List | Write-Debug
     }
+    Write-Debug "objectId: $objectId"
+    $principal | Add-Member -MemberType NoteProperty -Name objectId -Value $objectId -Force
+    $principal | Format-List | Write-Debug
     return $principal
 }
 
