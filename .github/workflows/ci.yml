@@ -91,7 +91,7 @@ jobs:
 
         $jobSettingsFile = (New-TemporaryFile).FullName
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
-        $settings | ConvertTo-Json | Write-Debug
+        Get-Content $jobSettingsFile | Write-Debug
 
         ./scripts/sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
 
