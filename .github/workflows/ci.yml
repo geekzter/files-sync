@@ -41,19 +41,6 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v2
 
-    # # ubuntu Az CLI installation 
-    # - name: Install CLI-beta
-    #   run: |
-    #     cd ../..
-    #     CWD="$(pwd)"
-    #     python3 -m venv oidc-venv
-    #     . oidc-venv/bin/activate
-    #     echo "activated environment" 
-    #     python3 -m pip install --upgrade pip
-    #     echo "started installing cli beta" 
-    #     pip install -q --extra-index-url https://azcliprod.blob.core.windows.net/beta/simple/ azure-cli
-    #     echo "installed cli beta"    
-    #     echo "$CWD/oidc-venv/bin" >> $GITHUB_PATH   
     - name: Use Azure CLI
       uses: azure/login@v1.4.1
       with:
@@ -73,17 +60,6 @@ jobs:
         Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_* | Sort-Object -Property Name
       shell: pwsh
 
-    - name: Logged in identity information
-      run: | 
-        # Write-Host "az account"
-        # az account show -o json
-
-        # Write-Host "az ad signed-in-user"
-        # az ad signed-in-user show -o json
-        . ./scripts/functions.ps1 
-        Get-LoggedInPrincipal
-      shell: pwsh
-
     - name: Create Storage Account
       run: | 
         $InformationPreference = "Continue"
@@ -94,6 +70,20 @@ jobs:
                                              -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                              -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }} `
                                              -Debug
+      shell: pwsh
+
+    - name: Sync with azcopy
+      run: | 
+        Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
+        $settings.tenantId = "${env:AZCOPY_TENANT_ID}"
+        $settings.syncPairs[0].source = $(pwd)
+        $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
+
+        $jobSettingsFile = (New-TemporaryFile).FullName
+        $settings | ConvertTo-Json | Out-File $jobSettingsFile
+
+        ./scripts/sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
+
       shell: pwsh
 
     - name: Clean Up
