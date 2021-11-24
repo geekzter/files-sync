@@ -58,7 +58,7 @@ if ($CreateServicePrincipal) {
                             --role $role `
                             -o json | ConvertFrom-Json | Set-Variable servicePrincipal
     Write-Host "Created/updated Service Principal '$($servicePrincipal.displayName)'"
-    $servicePrincipal | Format-List
+    $servicePrincipal | Out-String | Format-List
 }
 
 # Create or update Storage Account
@@ -96,12 +96,11 @@ az storage account blob-service-properties update `
                           --subscription $SubscriptionId `
                           -o none
 
-if ($cont) {
-    # Data plane access required
-    # Add firewall rule on storage account
+if ($Container) {
+    # Data plane access required, add firewall rule on storage account
     Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
 
-    $waitSeconds = 300
+    $waitSeconds = 30
     Write-Host "Waiting $waitSeconds seconds for firewall rules update to reflect..."
     Start-Sleep -Seconds $waitSeconds
 }
