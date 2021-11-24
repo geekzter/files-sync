@@ -88,7 +88,7 @@ jobs:
                                              -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                              -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                              -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }} `
-                                             -Verbose
+                                             -Debug
       shell: pwsh
 
     - name: Clean Up

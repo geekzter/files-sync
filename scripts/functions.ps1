@@ -237,6 +237,25 @@ function Get-AzCopyLogLevel () {
     return "NONE"
 }
 
+function Get-LoggedInPrincipal () {
+    az account show --query user -o json | ConvertFrom-Json | Set-Variable principal
+    switch ($user.Type) {
+        case "user" {
+            az ad signed-in-user show --query objectId -o tsv | Set-Variable objectId
+        }
+        case "servicePrincipal" {
+            az ad sp show --id fc037599-a376-48ef-b407-880c1b10fd7f --query objectId -o tsv | Set-Variable objectId
+        }
+        default {
+            Write-Warning "Could not determine objectId for user type '$($user.Type)'"
+        }
+        Write-Debug "objectId: $objectId"
+        $principal | Add-Member -MemberType NoteProperty -Name objectId -Value $objectId -Force
+        $principal | Format-List | Write-Debug
+    }
+    return $principal
+}
+
 function Get-StorageAccount (
     [parameter(Mandatory=$true)][string]$StorageAccountName
 ) {
