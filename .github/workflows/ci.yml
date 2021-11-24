@@ -75,7 +75,7 @@ jobs:
     - name: Sync with azcopy
       run: | 
         # Wait for resource graph to populate
-        $waitSeconds = 30
+        $waitSeconds = 60
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
