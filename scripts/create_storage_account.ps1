@@ -96,12 +96,13 @@ az storage account blob-service-properties update `
                           --subscription $SubscriptionId `
                           -o none
 
-# Add firewall rule on storage account
-Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
-
 if ($cont) {
+    # Data plane access required
+    # Add firewall rule on storage account
+    Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
+
     $waitSeconds = 300
-    Write-Host "Watting $waitSeconds seconds for firewall rules update to reflect..."
+    Write-Host "Waiting $waitSeconds seconds for firewall rules update to reflect..."
     Start-Sleep -Seconds $waitSeconds
 }
 
