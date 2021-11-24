@@ -57,7 +57,7 @@ if ($ResourceGroup) {
     $scope += "/resourceGroups/${ResourceGroup}"
 }
 az ad sp create-for-rbac --name $servicePrincipalName `
-                         --role Contributor `
+                         --role Owner `
                          --scopes $scope | ConvertFrom-Json | Set-Variable servicePrincipal
 $servicePrincipal | Format-List | Out-String | Write-Debug
 $appId = $servicePrincipal.appId 
