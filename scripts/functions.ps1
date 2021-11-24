@@ -252,7 +252,7 @@ function Get-LoggedInPrincipal () {
     }
     Write-Debug "objectId: $objectId"
     $principal | Add-Member -MemberType NoteProperty -Name objectId -Value $objectId -Force
-    $principal | Format-List | Write-Debug
+    $principal | Out-String | Format-List | Write-Debug
     return $principal
 }
 
