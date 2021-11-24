@@ -240,10 +240,10 @@ function Get-AzCopyLogLevel () {
 function Get-LoggedInPrincipal () {
     az account show --query user -o json | ConvertFrom-Json | Set-Variable principal
     switch ($user.Type) {
-        case "user" {
+        "user" {
             az ad signed-in-user show --query objectId -o tsv | Set-Variable objectId
         }
-        case "servicePrincipal" {
+        "servicePrincipal" {
             az ad sp show --id fc037599-a376-48ef-b407-880c1b10fd7f --query objectId -o tsv | Set-Variable objectId
         }
         default {
