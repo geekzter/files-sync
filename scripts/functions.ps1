@@ -260,6 +260,7 @@ function Get-StorageAccount (
     [parameter(Mandatory=$true)][string]$StorageAccountName
 ) {
     az graph query -q "resources | where type =~ 'microsoft.storage/storageaccounts' and name == '$StorageAccountName'" `
+                   -a `
                    --query "data" `
                    -o json | ConvertFrom-Json | Set-Variable storageAccount
     return $storageAccount
