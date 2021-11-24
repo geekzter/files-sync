@@ -78,6 +78,7 @@ jobs:
         $waitSeconds = 120
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
+        az graph query -q "resources | where type =~ 'microsoft.storage/storageaccounts' and name startswith 'filesyncci'" --query data -o table 
 
         Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = "${env:AZCOPY_TENANT_ID}"
@@ -91,33 +92,33 @@ jobs:
 
       shell: pwsh
 
-    # - name: Clean Up
-    #   if: ${{ always() }}
-    #   run: |
-    #     $ErrorActionPreference = "Stop"
-    #     if (!$env:GITHUB_RUN_ID) {
-    #       throw "GITHUB_RUN_ID not set, we can't identify resources to be cleaned up"
-    #     }
-    #     if (!$env:FILES_SYNC_RESOURCE_GROUP) {
-    #       throw "FILES_SYNC_RESOURCE_GROUP not set, we can't identify resources to be cleaned up"
-    #     }
-    #     $ErrorActionPreference = "Continue"
+    - name: Clean Up
+      if: ${{ always() }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        if (!$env:GITHUB_RUN_ID) {
+          throw "GITHUB_RUN_ID not set, we can't identify resources to be cleaned up"
+        }
+        if (!$env:FILES_SYNC_RESOURCE_GROUP) {
+          throw "FILES_SYNC_RESOURCE_GROUP not set, we can't identify resources to be cleaned up"
+        }
+        $ErrorActionPreference = "Continue"
 
-    #     # Remove resource locks first
-    #     az lock list -g $env:FILES_SYNC_RESOURCE_GROUP --query [].id -o tsv | Set-Variable resourceLockIds
-    #     if ($resourceLockIds) {
-    #       Write-Host "Removing resource locks $resourceLockIds..."
-    #       az lock delete --ids $resourceLockIds
-    #     }
+        # Remove resource locks first
+        az lock list -g $env:FILES_SYNC_RESOURCE_GROUP --query [].id -o tsv | Set-Variable resourceLockIds
+        if ($resourceLockIds) {
+          Write-Host "Removing resource locks $resourceLockIds..."
+          az lock delete --ids $resourceLockIds
+        }
 
-    #     # Build JMESPath expression
-    #     $tagQuery = "[?tags.application == 'files-sync' && tags.runid == '${env:GITHUB_RUN_ID}' && properties.provisioningState != 'Deleting'].id"
-    #     Write-Host "Removing resource group identified by `"$tagQuery`"..."
-    #     $resourceGroupIDs = $(az group list --query "$tagQuery" -o tsv)
-    #     if ($resourceGroupIDs) {
-    #       Write-Host "az resource delete --ids ${resourceGroupIDs}..."
-    #       az resource delete --ids $resourceGroupIDs --verbose
-    #     } else {
-    #       Write-Host "Nothing to remove"
-    #     }        
-    #   shell: pwsh
+        # Build JMESPath expression
+        $tagQuery = "[?tags.application == 'files-sync' && tags.runid == '${env:GITHUB_RUN_ID}' && properties.provisioningState != 'Deleting'].id"
+        Write-Host "Removing resource group identified by `"$tagQuery`"..."
+        $resourceGroupIDs = $(az group list --query "$tagQuery" -o tsv)
+        if ($resourceGroupIDs) {
+          Write-Host "az resource delete --ids ${resourceGroupIDs}..."
+          az resource delete --ids $resourceGroupIDs --verbose
+        } else {
+          Write-Host "Nothing to remove"
+        }        
+      shell: pwsh
