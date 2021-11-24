@@ -100,7 +100,7 @@ az storage account blob-service-properties update `
 Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
 
 if ($Container) {
-    $waitSeconds = 15
+    $waitSeconds = 10
     Write-Host "Waiting $waitSeconds seconds for firewall rules update to reflect..."
     Start-Sleep -Seconds $waitSeconds
 }
