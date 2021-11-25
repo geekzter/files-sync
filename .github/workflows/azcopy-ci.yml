@@ -193,7 +193,12 @@ jobs:
           Write-Host $_.FullName
         }
 
-        Compare-Object -ReferenceObject $upload -DifferenceObject $download #-CaseSensitive
+        Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Length CaseSensitive | Set-Variable diff
+        if ($diff) {
+          Write-Warning "Differences found between upload & download:"
+          $diff
+          throw "Test failed, download is different from upload"
+        }
       shell: pwsh
 
     - name: Clean Up
