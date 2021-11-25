@@ -176,8 +176,8 @@ jobs:
           throw "Test failed, download is different from upload"
         }
 
-        if (-not (($upload.foreach{ Get-FileHash $_.FullName }).Hash -and ($download.foreach{ Get-FileHash $_.FullName }).Hash))
-          Write-Warning "Differences found between upload & download file contents"
+        if (-not (($upload.foreach{ Get-FileHash $_.FullName }).Hash -and ($download.foreach{ Get-FileHash $_.FullName }).Hash)) {
+          Write-Warning "Differences found between uploaded & downloaded file contents"
           throw "Test failed, downloaded file contents is different from upload"
         }        
       shell: pwsh
