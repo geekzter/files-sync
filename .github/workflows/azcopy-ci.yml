@@ -80,6 +80,29 @@ jobs:
                                              -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }}
       shell: pwsh
 
+    - name: Prepare upload
+      run: | 
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+        } else {
+          $InformationPreference = "SilentlyContinue"
+          $VerbosePreference = "SilentlyContinue"
+          $DebugPreference = "SilentlyContinue"
+        }
+        Write-Information "`$InformationPreference: $InformationPreference"
+        Write-Verbose "`$VerbosePreference: $VerbosePreference"
+        Write-Debug "`$DebugPreference: $DebugPreference"
+
+        # Create upload directory
+        $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
+        New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
+        Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Recurse
+
+        Write-Output "FILES_SYNC_UPLOAD_DIRECTORY=${uploadDirectory}}" >> $env:GITHUB_ENV
+      shell: pwsh
+
     - name: Sync with AzCopy
       run: | 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
@@ -96,28 +119,20 @@ jobs:
         Write-Debug "`$DebugPreference: $DebugPreference"
 
         # Wait for resource graph to populate
-        $waitSeconds = 60
+        $waitSeconds = 45
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
-        # Create upload directory
-        $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
-        New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
-        Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Recurse
-
         Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = $env:AZCOPY_TENANT_ID
-        # $settings.syncPairs[0].source = $(pwd)
-        $settings.syncPairs[0].source = $uploadDirectory
+        $settings.syncPairs[0].source = $env:FILES_SYNC_UPLOAD_DIRECTORY
         $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
 
         $jobSettingsFile = (New-TemporaryFile).FullName
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        # Set-PSDebug -Trace 2
         ./scripts/sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
-        # Set-PSDebug -Trace 0
       shell: pwsh
 
     - name: Clone Storage Account
@@ -158,9 +173,22 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
                                             -Destination $downloadDirectory
-        Get-ChildItem $downloadDirectory -Recurse -Force | % {
+        Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}}" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Compare upload & download
+      run: | 
+        $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
+        Get-ChildItem $uploadDirectory -Recurse -Force | $upload
+        $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY
+        Get-ChildItem $downloadDirectory -Recurse -Force | $download
+
+        Write-Host "Downloaded files:"
+        $download | % {
           Write-Host $_.FullName
         }
+
+        Compare-Object -ReferenceObject $upload -DifferenceObject $download #-CaseSensitive
       shell: pwsh
 
     - name: Clean Up
