@@ -100,7 +100,12 @@ jobs:
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
         Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Recurse
 
-        Write-Output "FILES_SYNC_UPLOAD_DIRECTORY=${uploadDirectory}}" >> $env:GITHUB_ENV
+        Write-Host "To be uploaded files:"
+        Get-ChildItem $uploadDirectory -Recurse -Force | % {
+          Write-Host $_.FullName
+        }        
+
+        Write-Output "FILES_SYNC_UPLOAD_DIRECTORY=${uploadDirectory}" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Sync with AzCopy
@@ -123,7 +128,7 @@ jobs:
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
-        Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
+        Get-Content $env:GITHUB_WORKSPACE/scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = $env:AZCOPY_TENANT_ID
         $settings.syncPairs[0].source = $env:FILES_SYNC_UPLOAD_DIRECTORY
         $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
@@ -173,7 +178,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
                                             -Destination $downloadDirectory
-        Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}}" >> $env:GITHUB_ENV
+        Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Compare upload & download
