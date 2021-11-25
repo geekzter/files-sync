@@ -177,6 +177,7 @@ jobs:
           Write-Host " "
         }
 
+        # Compare file names
         $diff = (Compare-Object -ReferenceObject $upload.Name -DifferenceObject $download.Name -SyncWindow ($upload.length / 2))
         if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download:"
@@ -184,6 +185,7 @@ jobs:
           throw "Test failed, download is different from upload"
         }
 
+        # Compare file sizes
         $diff = (Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Length -SyncWindow ($upload.length / 2))
         if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download file sizes:"
@@ -193,14 +195,19 @@ jobs:
 
         # Calculate file hashes
         foreach ($file in $upload) {
-          $hash = Get-FileHash –Path $file.FullName
+          if ($file.Attributes -inotcontains "Directory") {
+            $hash = Get-FileHash –Path $file.FullName
+          }
           $file | Add-Member -NotePropertyName Hash -NotePropertyValue $storageAccountToken
         }
         foreach ($file in $download) {
-          $hash = Get-FileHash –Path $file.FullName
+          if ($file.Attributes -inotcontains "Directory") {
+            $hash = Get-FileHash –Path $file.FullName
+          }
           $file | Add-Member -NotePropertyName Hash -NotePropertyValue $storageAccountToken
         }
         
+        # Compare file hashes
         $diff = (Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Hash -SyncWindow ($upload.length / 2))
         if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download file hashes:"
