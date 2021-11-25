@@ -48,6 +48,7 @@ jobs:
       run: | 
         Write-Output "FILES_SYNC_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
+        Write-Output "FILES_SYNC_STORAGE_ACCOUNT_CLONE=filesync2ci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         if (!$TEMP) {
           Write-Output "TEMP=${env:RUNNER_TEMP}" >> $env:GITHUB_ENV
@@ -78,11 +79,10 @@ jobs:
         ./scripts/create_storage_account.ps1 -Container artifacts `
                                              -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                              -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
-                                             -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }} `
-                                             -Debug
+                                             -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }}
       shell: pwsh
 
-    - name: Sync with azcopy
+    - name: Sync with AzCopy
       run: | 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
@@ -114,8 +114,30 @@ jobs:
         # Set-PSDebug -Trace 2
         ./scripts/sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
         # Set-PSDebug -Trace 0
-
       shell: pwsh
+
+    - name: Clone Storage Account
+      run: | 
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+        } else {
+          $InformationPreference = "SilentlyContinue"
+          $VerbosePreference = "SilentlyContinue"
+          $DebugPreference = "SilentlyContinue"
+        }
+        Write-Information "`$InformationPreference: $InformationPreference"
+        Write-Verbose "`$VerbosePreference: $VerbosePreference"
+        Write-Debug "`$DebugPreference: $DebugPreference"
+
+        ./scripts/clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
+                                            -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE
+      shell: pwsh
+
+    # - name: Download with AzCopy
+    #   run: | 
+    #   shell: pwsh
 
     - name: Clean Up
       if: ${{ always() }}
