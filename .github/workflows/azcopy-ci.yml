@@ -84,7 +84,7 @@ jobs:
         # Create upload directory
         $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
-        Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Recurse
+        Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Exclude .* -Recurse
 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           Write-Host "To be uploaded files:"
@@ -156,14 +156,13 @@ jobs:
           $DebugPreference = "Continue"
         }
 
+        $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           Write-Host "Downloaded files:"
           Get-ChildItem $downloadDirectory -Recurse -Force | % {
             Write-Host $_.FullName
           }
         }
-
-        $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
         $upload = (Get-ChildItem $uploadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
         $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY
         $download = (Get-ChildItem $downloadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
