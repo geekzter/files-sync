@@ -80,7 +80,7 @@ foreach ($subject in $subjects) {
     if (!$federatedSubjects -or !$federatedSubjects.Contains($subject)) {
         $federationName = ($subject -replace ":|/","-")
 
-        Get-Content (Join-Path $PSScriptRoot "federated-dentity-request-template.jsonc") | ConvertFrom-Json | Set-Variable request
+        Get-Content (Join-Path $PSScriptRoot "federated-identity-request-template.jsonc") | ConvertFrom-Json | Set-Variable request
         $request.name = $federationName
         $request.subject = $subject
         $request | Format-List | Out-String | Write-Debug
