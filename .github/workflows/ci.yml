@@ -1,4 +1,5 @@
 on:
+  workflow_dispatch:
   push:
     branches: [ main, improvements ]
     paths-ignore:
@@ -11,18 +12,9 @@ on:
     - '**/README.md'
     - '**/LICENSE'
     - 'visuals/**'
-
   schedule:
   - cron:  '0 3 * * *'
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-    inputs:
-      debug_preference:
-        description: 'Set PowerShell DebugPreference'
-        required: false
-        type: boolean
-        default: false
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
@@ -65,7 +57,7 @@ jobs:
     - name: List environment variables
       run: | 
         # List environment variables
-        Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
+        Get-ChildItem -Path Env: -Recurse -Include ACTIONS_RUNNER_DEBUG,ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
       shell: pwsh
 
     - name: Create Storage Account
@@ -73,12 +65,10 @@ jobs:
         Write-Information "before: information on"
         Write-Verbose "before: verbose on"
         Write-Information "before: debug on"
-        if ("{{ github.event.inputs.debug_preference }}") {
-          if (${{ github.event.inputs.debug_preference }}) {
-            $InformationPreference = "Continue"
-            $VerbosePreference = "Continue"
-            $DebugPreference = "Continue"
-          }
+        if ($env:ACTIONS_RUNNER_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
         }
         Write-Information "after: information on"
         Write-Verbose "after: verbose on"
@@ -95,12 +85,10 @@ jobs:
         Write-Information "before: information on"
         Write-Verbose "before: verbose on"
         Write-Information "before: debug on"
-        if ("{{ github.event.inputs.debug_preference }}") {
-          if (${{ github.event.inputs.debug_preference }}) {
-            $InformationPreference = "Continue"
-            $VerbosePreference = "Continue"
-            $DebugPreference = "Continue"
-          }
+        if ($env:ACTIONS_RUNNER_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
         }
         Write-Information "after: information on"
         Write-Verbose "after: verbose on"
