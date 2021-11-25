@@ -65,14 +65,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
-        } else {
-          $InformationPreference = "SilentlyContinue"
-          $VerbosePreference = "SilentlyContinue"
-          $DebugPreference = "SilentlyContinue"
         }
-        Write-Information "`$InformationPreference: $InformationPreference"
-        Write-Verbose "`$VerbosePreference: $VerbosePreference"
-        Write-Debug "`$DebugPreference: $DebugPreference"
 
         ./scripts/create_storage_account.ps1 -Container artifacts `
                                              -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
@@ -86,14 +79,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
-        } else {
-          $InformationPreference = "SilentlyContinue"
-          $VerbosePreference = "SilentlyContinue"
-          $DebugPreference = "SilentlyContinue"
         }
-        Write-Information "`$InformationPreference: $InformationPreference"
-        Write-Verbose "`$VerbosePreference: $VerbosePreference"
-        Write-Debug "`$DebugPreference: $DebugPreference"
 
         # Create upload directory
         $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
@@ -114,14 +100,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
-        } else {
-          $InformationPreference = "SilentlyContinue"
-          $VerbosePreference = "SilentlyContinue"
-          $DebugPreference = "SilentlyContinue"
         }
-        Write-Information "`$InformationPreference: $InformationPreference"
-        Write-Verbose "`$VerbosePreference: $VerbosePreference"
-        Write-Debug "`$DebugPreference: $DebugPreference"
 
         # Wait for resource graph to populate
         $waitSeconds = 45
@@ -146,14 +125,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
-        } else {
-          $InformationPreference = "SilentlyContinue"
-          $VerbosePreference = "SilentlyContinue"
-          $DebugPreference = "SilentlyContinue"
         }
-        Write-Information "`$InformationPreference: $InformationPreference"
-        Write-Verbose "`$VerbosePreference: $VerbosePreference"
-        Write-Debug "`$DebugPreference: $DebugPreference"
 
         ./scripts/clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                             -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE
@@ -165,14 +137,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
-        } else {
-          $InformationPreference = "SilentlyContinue"
-          $VerbosePreference = "SilentlyContinue"
-          $DebugPreference = "SilentlyContinue"
         }
-        Write-Information "`$InformationPreference: $InformationPreference"
-        Write-Verbose "`$VerbosePreference: $VerbosePreference"
-        Write-Debug "`$DebugPreference: $DebugPreference"
 
         $downloadDirectory = (Join-Path $env:RUNNER_WORKSPACE "download")
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
@@ -183,6 +148,12 @@ jobs:
 
     - name: Compare upload & download
       run: | 
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+        }
+
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
         Get-ChildItem $uploadDirectory -Recurse -Force | Set-Variable upload
         $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY
@@ -193,7 +164,7 @@ jobs:
           Write-Host $_.FullName
         }
 
-        Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Length CaseSensitive | Set-Variable diff
+        Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Length -CaseSensitive | Set-Variable diff
         if ($diff) {
           Write-Warning "Differences found between upload & download:"
           $diff
@@ -204,6 +175,12 @@ jobs:
     - name: Clean Up
       if: ${{ always() }}
       run: |
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+        }
+
         $ErrorActionPreference = "Stop"
         if (!$env:GITHUB_RUN_ID) {
           throw "GITHUB_RUN_ID not set, we can't identify resources to be cleaned up"
