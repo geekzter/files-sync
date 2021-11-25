@@ -58,7 +58,7 @@ jobs:
     - name: List environment variables
       run: | 
         # List environment variables
-        Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_* | Sort-Object -Property Name
+        Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
       shell: pwsh
 
     - name: Create Storage Account

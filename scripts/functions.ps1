@@ -137,8 +137,7 @@ function Execute-AzCopy (
     $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
     $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
-    Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,TEMPTMP,TMPDIR | Sort-Object -Property Name | Out-String | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Debug
-    Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,TEMPTMP,TMPDIR | Sort-Object -Property Name | Format-Table | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Debug
+    Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,TEMP,TMP,TMPDIR | Sort-Object -Property Name | Out-String | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Debug
 
     $backOffMessage = "azcopy command '$AzCopyCommand' did not execute (could not find azcopy job ID)"
     do {
