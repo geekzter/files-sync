@@ -134,7 +134,7 @@ function Execute-AzCopy (
 ) {
 
     # Redirect temporary files to the OS default location, if not already redirected
-    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
+    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR ?? (New-TemporaryFile).DirectoryName) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
     $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 

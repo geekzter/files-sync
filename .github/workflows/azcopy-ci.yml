@@ -50,15 +50,13 @@ jobs:
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT_CLONE=filesync2ci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
-        if (!$TEMP) {
-          Write-Output "TEMP=${env:RUNNER_TEMP}" >> $env:GITHUB_ENV
-        }        
       shell: pwsh
 
     - name: List environment variables
       run: | 
         # List environment variables
         Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
+        Get-ChildItem -Path Env: -Recurse -Include * | Sort-Object -Property Name
       shell: pwsh
 
     - name: Create Storage Account
@@ -102,8 +100,11 @@ jobs:
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
+        # Create upload directory
         $uploadDirectory = (Join-Path . "upload")
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
+        Copy-Item -Path . -Destination $uploadDirectory -Recurse
+
         Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = "${env:AZCOPY_TENANT_ID}"
         $settings.syncPairs[0].source = $(pwd)
@@ -157,7 +158,9 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
                                             -Destination $downloadDirectory
-        Get-ChildItem $downloadDirectory -Recurse -Force
+        Get-ChildItem $downloadDirectory -Recurse -Force | % {
+          Write-Host $_.FullName
+        }
       shell: pwsh
 
     - name: Clean Up
