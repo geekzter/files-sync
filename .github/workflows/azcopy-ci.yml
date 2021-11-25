@@ -102,9 +102,12 @@ jobs:
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
+        $uploadDirectory = (Join-Path . "upload")
+        New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
         Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = "${env:AZCOPY_TENANT_ID}"
         $settings.syncPairs[0].source = $(pwd)
+        $settings.syncPairs[0].source = $uploadDirectory
         $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
 
         $jobSettingsFile = (New-TemporaryFile).FullName
@@ -154,7 +157,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
                                             -Destination $downloadDirectory
-        Get-ChildItem $downloadDirectory
+        Get-ChildItem $downloadDirectory -Recurse -Force
       shell: pwsh
 
     - name: Clean Up
