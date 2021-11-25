@@ -335,8 +335,8 @@ function Sync-AzureToAzure (
     $azcopyCommand = "azcopy sync '${Source}?${SourceToken}' '${Target}?${TargetToken}' $azcopyArgs"
 
     Execute-AzCopy -AzCopyCommand $azcopyCommand `
-                   -Source $source `
-                   -Target $target `
+                   -Source $Source `
+                   -Target $Target `
                    -LogFile $LogFile
 }
 
@@ -371,9 +371,9 @@ function Sync-DirectoryToAzure (
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
 
     Execute-AzCopy -AzCopyCommand $azcopyCommand `
-                   -Source $source `
-                   -Target $target `
-                   -LogFile $logFile
+                   -Source $Source `
+                   -Target $Target `
+                   -LogFile $LogFile
 }
 
 # rsync
