@@ -107,7 +107,7 @@ jobs:
         Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = "${env:AZCOPY_TENANT_ID}"
         $settings.syncPairs[0].source = $(pwd)
-        $settings.syncPairs[0].source = $uploadDirectory
+        # $settings.syncPairs[0].source = $uploadDirectory
         $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
 
         $jobSettingsFile = (New-TemporaryFile).FullName
