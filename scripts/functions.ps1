@@ -167,16 +167,16 @@ function Execute-AzCopy (
                     switch ($jobStatus) {
                         "Completed" {
                             Reset-BackOff
-                            Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
+                            Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
                         }
                         "CompletedWithErrors" {
                             # This can happen when a drive is (temporarily) unplugged, let's retry
                             Calculate-BackOff
-                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                         }
                         default {
                             Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
-                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
                         }
                     }
                 } else {
