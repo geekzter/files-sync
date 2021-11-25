@@ -179,9 +179,9 @@ jobs:
     - name: Compare upload & download
       run: | 
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
-        Get-ChildItem $uploadDirectory -Recurse -Force | $upload
+        Get-ChildItem $uploadDirectory -Recurse -Force | Set-Variable upload
         $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY
-        Get-ChildItem $downloadDirectory -Recurse -Force | $download
+        Get-ChildItem $downloadDirectory -Recurse -Force | Set-Variable download
 
         Write-Host "Downloaded files:"
         $download | % {
