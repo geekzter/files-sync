@@ -86,10 +86,12 @@ jobs:
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
         Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Recurse
 
-        Write-Host "To be uploaded files:"
-        Get-ChildItem $uploadDirectory -Recurse -Force | % {
-          Write-Host $_.FullName
-        }        
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          Write-Host "To be uploaded files:"
+          Get-ChildItem $uploadDirectory -Recurse -Force | % {
+            Write-Host $_.FullName
+          }        
+        }
 
         Write-Output "FILES_SYNC_UPLOAD_DIRECTORY=${uploadDirectory}" >> $env:GITHUB_ENV
       shell: pwsh
@@ -155,13 +157,15 @@ jobs:
         }
 
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
-        Get-ChildItem $uploadDirectory -Recurse -Force | Set-Variable upload
+        $upload = (Get-ChildItem $uploadDirectory -Recurse -Force)
         $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY
-        Get-ChildItem $downloadDirectory -Recurse -Force | Set-Variable download
+        $download = (Get-ChildItem $downloadDirectory -Recurse -Force)
 
-        Write-Host "Downloaded files:"
-        $download | % {
-          Write-Host $_.FullName
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          Write-Host "Downloaded files:"
+          $download | % {
+            Write-Host $_.FullName
+          }
         }
 
         Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Length -CaseSensitive | Set-Variable diff
