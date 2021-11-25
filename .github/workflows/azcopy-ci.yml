@@ -198,13 +198,13 @@ jobs:
           if ($file.Attributes -inotcontains "Directory") {
             $hash = Get-FileHash –Path $file.FullName
           }
-          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $storageAccountToken
+          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $hash
         }
         foreach ($file in $download) {
           if ($file.Attributes -inotcontains "Directory") {
             $hash = Get-FileHash –Path $file.FullName
           }
-          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $storageAccountToken
+          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $hash
         }
         
         # Compare file hashes
