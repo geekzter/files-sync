@@ -135,9 +135,27 @@ jobs:
                                             -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE
       shell: pwsh
 
-    # - name: Download with AzCopy
-    #   run: | 
-    #   shell: pwsh
+    - name: Download with AzCopy
+      run: | 
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+        } else {
+          $InformationPreference = "SilentlyContinue"
+          $VerbosePreference = "SilentlyContinue"
+          $DebugPreference = "SilentlyContinue"
+        }
+        Write-Information "`$InformationPreference: $InformationPreference"
+        Write-Verbose "`$VerbosePreference: $VerbosePreference"
+        Write-Debug "`$DebugPreference: $DebugPreference"
+
+        $downloadDirectory = (Join-Path . "download")
+        New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
+        ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
+                                            -Destination $downloadDirectory
+        Get-ChildItem $downloadDirectory
+      shell: pwsh
 
     - name: Clean Up
       if: ${{ always() }}
