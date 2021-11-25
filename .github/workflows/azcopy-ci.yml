@@ -169,17 +169,17 @@ jobs:
         $download = (Get-ChildItem $downloadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
 
         # https://adamtheautomator.com/powershell-compare-directories/
-        Compare-Object -ReferenceObject $upload.Name -DifferenceObject $download.Name -CaseSensitive | Set-Variable diff
+        $diff = (Compare-Object -ReferenceObject $upload.Name -DifferenceObject $download.Name)
         if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download:"
-          $diff
+          $diff | Format-Table
           throw "Test failed, download is different from upload"
         }
 
-        Compare-Object -ReferenceObject $upload -DifferenceObject $download -CaseSensitive | Set-Variable diff
+        $diff = (Compare-Object -ReferenceObject $upload -DifferenceObject $download)
         if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download file sizes:"
-          $diff
+          $diff | Format-Table
           throw "Test failed, download file size is different from upload"
         }
 
