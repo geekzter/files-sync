@@ -201,8 +201,7 @@ function Execute-AzCopy (
                 $_.Exception | Format-List -Force
                 $_ | Format-List -Force
             }
-            $_.Exception | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
-            $_ | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            Write-Output "$_ $($_.ScriptStackTrace)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
         }
 
     } while ($(Continue-BackOff))

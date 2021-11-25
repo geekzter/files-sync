@@ -113,6 +113,11 @@ do {
         Write-Host " "
     } catch {
         Calculate-BackOff
+        if ($DebugPreference -ieq "Continue") {
+            $_.Exception | Format-List -Force
+            $_ | Format-List -Force
+        }
+        Write-Output "$_ $($_.ScriptStackTrace)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
     }
 
 } while ($(Continue-BackOff))
