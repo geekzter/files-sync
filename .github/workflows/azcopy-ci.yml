@@ -184,7 +184,7 @@ jobs:
           $diff | Format-Table
           throw "Test failed, download is different from upload"
         } else {
-          Write-Host upload & download file names match"
+          Write-Host "upload & download file names match"
         }
 
         # Compare file sizes
@@ -194,7 +194,7 @@ jobs:
           $diff | Format-Table
           throw "Test failed, download file size is different from upload"
         } else {
-          Write-Host upload & download file sizes match"
+          Write-Host "upload & download file sizes match"
         }
 
         # Calculate file hashes
@@ -213,7 +213,7 @@ jobs:
           $diff | Format-Table
           throw "Test failed, download file hash is different from upload"
         } else {
-          Write-Host upload & download file hashes match"
+          Write-Host "upload & download file hashes match"
         }
 
       shell: pwsh
