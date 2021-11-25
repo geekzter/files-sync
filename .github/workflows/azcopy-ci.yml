@@ -194,15 +194,10 @@ jobs:
         }
 
         # Calculate file hashes
-        foreach ($file in $upload) {
+        foreach ($file in ($upload + $download)) {
+          $hash = $null
           if ($file.Attributes -inotcontains "Directory") {
-            $hash = Get-FileHash –Path $file.FullName
-          }
-          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $hash
-        }
-        foreach ($file in $download) {
-          if ($file.Attributes -inotcontains "Directory") {
-            $hash = Get-FileHash –Path $file.FullName
+            $hash = (Get-FileHash –Path $file.FullName -ErrorAction SilentlyContinue)
           }
           $file | Add-Member -NotePropertyName Hash -NotePropertyValue $hash
         }
