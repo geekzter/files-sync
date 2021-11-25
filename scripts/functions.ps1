@@ -191,13 +191,18 @@ function Execute-AzCopy (
                 
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -ne 0) {
+                    if ($DebugPreference -ieq "Continue") {
+                        Get-PSCallStack
+                    }
                     Write-Output "azcopy command '$AzCopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
                     exit $exitCode
                 }
             }
         } catch {
             Calculate-BackOff
-            Get-PSCallStack
+            if ($DebugPreference -ieq "Continue") {
+                Get-PSCallStack
+            }
             Write-Output $_ | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
         }
 
