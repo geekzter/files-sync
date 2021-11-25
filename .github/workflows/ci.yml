@@ -62,17 +62,11 @@ jobs:
 
     - name: Create Storage Account
       run: | 
-        Write-Information "before: information on"
-        Write-Verbose "before: verbose on"
-        Write-Information "before: debug on"
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
         }
-        Write-Information "after: information on"
-        Write-Verbose "after: verbose on"
-        Write-Information "after: debug on"
         ./scripts/create_storage_account.ps1 -Container artifacts `
                                              -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                              -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
@@ -82,17 +76,11 @@ jobs:
 
     - name: Sync with azcopy
       run: | 
-        Write-Information "before: information on"
-        Write-Verbose "before: verbose on"
-        Write-Information "before: debug on"
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
         }
-        Write-Information "after: information on"
-        Write-Verbose "after: verbose on"
-        Write-Information "after: debug on"
 
         # Wait for resource graph to populate
         $waitSeconds = 60
