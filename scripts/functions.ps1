@@ -198,11 +198,11 @@ function Execute-AzCopy (
         } catch {
             Calculate-BackOff
             if ($DebugPreference -ieq "Continue") {
-                Get-PSCallStack
-                $_.Exception.StackTrace
+                $_.Exception | Format-List -Force
+                $_.Exception | Format-List -Force
             }
-            Write-Output $_.Exception | Out-String | Format-List | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
-            Write-Output $_ | Out-String | Format-List | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            Write-Output $_.Exception | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            Write-Output $_ | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
         }
 
     } while ($(Continue-BackOff))
