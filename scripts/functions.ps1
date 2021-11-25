@@ -201,8 +201,8 @@ function Execute-AzCopy (
                 Get-PSCallStack
                 $_.Exception.StackTrace
             }
-            Write-Output $_.Exception | Format-List | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
-            Write-Output $_ | Format-List | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            Write-Output $_.Exception | Out-String | Format-List | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            Write-Output $_ | Out-String | Format-List | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
         }
 
     } while ($(Continue-BackOff))
