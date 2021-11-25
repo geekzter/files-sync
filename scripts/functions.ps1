@@ -199,10 +199,10 @@ function Execute-AzCopy (
             Calculate-BackOff
             if ($DebugPreference -ieq "Continue") {
                 $_.Exception | Format-List -Force
-                $_.Exception | Format-List -Force
+                $_ | Format-List -Force
             }
-            Write-Output $_.Exception | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
-            Write-Output $_ | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            $_.Exception | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+            $_ | Format-List -Force | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
         }
 
     } while ($(Continue-BackOff))
