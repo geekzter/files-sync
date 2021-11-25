@@ -16,7 +16,7 @@ Write-Debug $MyInvocation.line
 . (Join-Path $PSScriptRoot functions.ps1)
 
 $logFile = Create-LogFile
-$tempDirectory = (Get-TempDirectory) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
+$tempDirectory = (Get-TempDirectory) -replace "\$([IO.Path]::DirectorySeparatorChar)$",""
 $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
 $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
