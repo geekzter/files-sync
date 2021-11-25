@@ -21,6 +21,7 @@ env:
   AZCOPY_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
+  FILES_SYNC_STORAGE_CONTAINER: artifacts
 
 permissions:
   id-token: write
@@ -67,7 +68,7 @@ jobs:
           $DebugPreference = "Continue"
         }
 
-        ./scripts/create_storage_account.ps1 -Container artifacts `
+        ./scripts/create_storage_account.ps1 -Container $env:FILES_SYNC_STORAGE_CONTAINER `
                                              -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                              -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                              -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }}
@@ -112,7 +113,7 @@ jobs:
         Get-Content $env:GITHUB_WORKSPACE/scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
         $settings.tenantId = $env:AZCOPY_TENANT_ID
         $settings.syncPairs[0].source = $env:FILES_SYNC_UPLOAD_DIRECTORY
-        $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
+        $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}"
 
         $jobSettingsFile = (New-TemporaryFile).FullName
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
@@ -142,10 +143,12 @@ jobs:
         }
 
         $downloadDirectory = (Join-Path $env:RUNNER_WORKSPACE "download")
+        $downloadDirectoryStorageContainer = (Join-Path $downloadDirectory $env:FILES_SYNC_STORAGE_CONTAINER)
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
-        ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
+        ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
                                             -Destination $downloadDirectory
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
+        Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Compare upload & download
@@ -158,7 +161,7 @@ jobs:
 
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
         $upload = (Get-ChildItem $uploadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
-        $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY
+        $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER
         $download = (Get-ChildItem $downloadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
