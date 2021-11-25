@@ -165,15 +165,13 @@ jobs:
         }
 
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
-        # $upload = (Get-ChildItem $uploadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
         $upload = (Get-ChildItem $uploadDirectory -Recurse -Force | Sort-Object -Property FullName)
         $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER
-        # $download = (Get-ChildItem $downloadDirectory -Recurse -Force | Sort-Object -Property FullName | Select-Object -Property Name, Length)
         $download = (Get-ChildItem $downloadDirectory -Recurse -Force | Sort-Object -Property FullName)
 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           Write-Host "Downloaded files:"
-          Get-ChildItem $downloadDirectory -Recurse -Force | % {
+          $download | % {
             Write-Host $_.FullName
           }
           Write-Host " "
@@ -193,11 +191,23 @@ jobs:
           throw "Test failed, download file size is different from upload"
         }
 
-        # https://adamtheautomator.com/powershell-compare-directories/
-        if (-not (($upload.foreach{ Get-FileHash $_.FullName }).Hash -and ($download.foreach{ Get-FileHash $_.FullName }).Hash)) {
-          Write-Warning "Differences found between uploaded & downloaded file contents"
-          throw "Test failed, downloaded file contents is different from upload"
-        }        
+        # Calculate file hashes
+        foreach ($file in $upload) {
+          $hash = Get-FileHash –Path $file.FullName
+          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $storageAccountToken
+        }
+        foreach ($file in $download) {
+          $hash = Get-FileHash –Path $file.FullName
+          $file | Add-Member -NotePropertyName Hash -NotePropertyValue $storageAccountToken
+        }
+        
+        $diff = (Compare-Object -ReferenceObject $upload -DifferenceObject $download -Property Name, Hash -SyncWindow ($upload.length / 2))
+        if ($diff -and $diff.Count -gt 0) {
+          Write-Warning "Differences found between upload & download file hashes:"
+          $diff | Format-Table
+          throw "Test failed, download file hash is different from upload"
+        }
+
       shell: pwsh
 
     - name: Clean Up
