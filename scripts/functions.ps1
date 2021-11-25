@@ -134,7 +134,7 @@ function Execute-AzCopy (
 ) {
 
     # Redirect temporary files to the OS default location, if not already redirected
-    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR ?? (New-TemporaryFile).DirectoryName) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
+    $tempDirectory = (Get-TempDirectory) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
     $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
@@ -480,6 +480,17 @@ function Add-Message (
     if ($Passthru) {
         Write-Output $Message
     }
+}
+
+function Get-TempDirectory () {
+    $tempDirectory = ($env:TEMP ?? $env:TMP ?? $env:TMPDIR)
+    if (!$tempDirectory) {
+        $tempFile = New-TemporaryFile
+        $tempDirectory = $tempFile.DirectoryName
+        Remove-Item $tempFile | Out-Null
+    }
+
+    return $tempDirectory
 }
 
 function Get-Settings (
