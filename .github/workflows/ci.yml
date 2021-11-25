@@ -1,5 +1,6 @@
+name: azcopy-ci
+
 on:
-  workflow_dispatch:
   push:
     branches: [ main, improvements ]
     paths-ignore:
@@ -14,14 +15,12 @@ on:
     - 'visuals/**'
   schedule:
   - cron:  '0 3 * * *'
-
+  workflow_dispatch:
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
-
-name: ci
 
 permissions:
   id-token: write
@@ -47,6 +46,7 @@ jobs:
 
     - name: Prepare environment variables
       run: | 
+        Write-Output "FILES_SYNC_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         if (!$TEMP) {
@@ -57,7 +57,7 @@ jobs:
     - name: List environment variables
       run: | 
         # List environment variables
-        Get-ChildItem -Path Env: -Recurse -Include ACTIONS_RUNNER_DEBUG,ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
+        Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
       shell: pwsh
 
     - name: Create Storage Account
@@ -65,7 +65,7 @@ jobs:
         Write-Information "before: information on"
         Write-Verbose "before: verbose on"
         Write-Information "before: debug on"
-        if ($env:ACTIONS_RUNNER_DEBUG -ieq "true") {
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -85,7 +85,7 @@ jobs:
         Write-Information "before: information on"
         Write-Verbose "before: verbose on"
         Write-Information "before: debug on"
-        if ($env:ACTIONS_RUNNER_DEBUG -ieq "true") {
+        if ($env:FILES_SYNC_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
