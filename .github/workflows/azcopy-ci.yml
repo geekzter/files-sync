@@ -142,6 +142,11 @@ jobs:
           $DebugPreference = "Continue"
         }
 
+        # Wait for resource graph to populate
+        $waitSeconds = 45
+        Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
+        Start-Sleep -Seconds $waitSeconds
+
         $downloadDirectory = (Join-Path $env:RUNNER_WORKSPACE "download")
         $downloadDirectoryStorageContainer = (Join-Path $downloadDirectory $env:FILES_SYNC_STORAGE_CONTAINER)
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug

@@ -43,6 +43,10 @@ if (!$TenantId) {
 Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
 
 $storageAccount = Get-StorageAccount $storageAccountName
+if (!$storageAccount) {
+    Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph. Make sure you're logged into the right Azure Active Directory tenant (current: $SourceTenantId). Exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
+    exit
+}
 $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
                                        -ResourceGroupName $storageAccount.resourceGroup `
                                        -SubscriptionId $storageAccount.subscriptionId `
