@@ -1,8 +1,4 @@
-name: ci
-
-# Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
     branches: [ main, improvements ]
     paths-ignore:
@@ -32,6 +28,8 @@ on:
   AZCOPY_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
+
+name: ci
 
 permissions:
   id-token: write
