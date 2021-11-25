@@ -474,8 +474,10 @@ function Add-Message (
     [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
     [parameter(Mandatory=$false)][switch]$Passthru
 ) {
-    # Strip tokens from message
-    $storedMessage = $Message -replace "\?se.*\%3D",""
+    $storedMessage = $Message -replace "\?se.*\%3D","" # Strip tokens from message
+    if ($DebugPreference -ieq "Continue") {
+        $storedMessage += "`n$(Get-PSCallStack)"
+    }
     $script:messages.Add($storedMessage) | Out-Null
     if ($Passthru) {
         Write-Output $Message
