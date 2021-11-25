@@ -469,6 +469,9 @@ function Add-Message (
     [parameter(Mandatory=$false)][switch]$Passthru
 ) {
     # Strip tokens from message
+    if ($DebugPreference -ieq "Continue") {
+        $script:messages.Add(Get-PSCallStack) | Out-Null
+    }
     $storedMessage = $Message -replace "\?se.*\%3D",""
     $script:messages.Add($storedMessage) | Out-Null
     if ($Passthru) {
