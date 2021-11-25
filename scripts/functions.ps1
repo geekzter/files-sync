@@ -137,6 +137,8 @@ function Execute-AzCopy (
     $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
     $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
     $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
+    Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,TEMPTMP,TMPDIR | Sort-Object -Property Name | Out-String | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Debug
+    Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,TEMPTMP,TMPDIR | Sort-Object -Property Name | Format-Table | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Debug
 
     $backOffMessage = "azcopy command '$AzCopyCommand' did not execute (could not find azcopy job ID)"
     do {
@@ -153,7 +155,7 @@ function Execute-AzCopy (
                 $jobId = Get-AzCopyLatestJobId
                 if ($jobId -and ($jobId -ne $previousJobId)) {
                     Remove-Message $backOffMessage # Back off message superseded by job result
-                    $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+                    $jobLogFile = ((Join-Path -Path $env:AZCOPY_LOG_LOCATION -ChildPath "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
                     if (Test-Path $jobLogFile) {
                         if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
                             Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
