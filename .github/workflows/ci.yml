@@ -93,7 +93,9 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
+        Set-PSDebug -Trace 2
         ./scripts/sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
+        Set-PSDebug -Trace 0
 
       shell: pwsh
 

@@ -196,8 +196,9 @@ function Execute-AzCopy (
                 }
             }
         } catch {
-            Write-Output $_ | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
             Calculate-BackOff
+            Get-PSCallStack
+            Write-Output $_ | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
         }
 
     } while ($(Continue-BackOff))
@@ -469,9 +470,6 @@ function Add-Message (
     [parameter(Mandatory=$false)][switch]$Passthru
 ) {
     # Strip tokens from message
-    if ($DebugPreference -ieq "Continue") {
-        $script:messages.Add(Get-PSCallStack) | Out-Null
-    }
     $storedMessage = $Message -replace "\?se.*\%3D",""
     $script:messages.Add($storedMessage) | Out-Null
     if ($Passthru) {
