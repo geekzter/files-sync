@@ -101,12 +101,12 @@ jobs:
         Start-Sleep -Seconds $waitSeconds
 
         # Create upload directory
-        $uploadDirectory = (Join-Path . "upload")
+        $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
-        Copy-Item -Path . -Destination $uploadDirectory -Recurse
+        Copy-Item -Path $env:GITHUB_WORKSPACE -Destination $uploadDirectory -Recurse
 
         Get-Content ./scripts/azcopy-settings.jsonc | ConvertFrom-Json | Set-Variable settings
-        $settings.tenantId = "${env:AZCOPY_TENANT_ID}"
+        $settings.tenantId = $env:AZCOPY_TENANT_ID
         $settings.syncPairs[0].source = $(pwd)
         # $settings.syncPairs[0].source = $uploadDirectory
         $settings.syncPairs[0].target = "https://${env:FILES_SYNC_STORAGE_ACCOUNT}.blob.core.windows.net/artifacts"
@@ -154,7 +154,7 @@ jobs:
         Write-Verbose "`$VerbosePreference: $VerbosePreference"
         Write-Debug "`$DebugPreference: $DebugPreference"
 
-        $downloadDirectory = (Join-Path . "download")
+        $downloadDirectory = (Join-Path $env:RUNNER_WORKSPACE "download")
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/artifacts" `
                                             -Destination $downloadDirectory
