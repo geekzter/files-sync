@@ -53,6 +53,9 @@ jobs:
       run: | 
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
+        if (!$TEMP) {
+          Write-Output "TEMP=${env:RUNNER_TEMP}" >> $env:GITHUB_ENV
+        }        
       shell: pwsh
 
     - name: List environment variables
