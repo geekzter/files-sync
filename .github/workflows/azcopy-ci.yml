@@ -170,14 +170,14 @@ jobs:
 
         # https://adamtheautomator.com/powershell-compare-directories/
         Compare-Object -ReferenceObject $upload.Name -DifferenceObject $download.Name -CaseSensitive | Set-Variable diff
-        if ($diff and $diff.Count -gt 0) {
+        if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download:"
           $diff
           throw "Test failed, download is different from upload"
         }
 
         Compare-Object -ReferenceObject $upload -DifferenceObject $download -CaseSensitive | Set-Variable diff
-        if ($diff and $diff.Count -gt 0) {
+        if ($diff -and $diff.Count -gt 0) {
           Write-Warning "Differences found between upload & download file sizes:"
           $diff
           throw "Test failed, download file size is different from upload"
