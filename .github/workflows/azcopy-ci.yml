@@ -42,6 +42,7 @@ jobs:
       uses: azure/login@v1
       with:
         # Using OpenID Connect / Workload Identity
+        # Create credential with create_ci_service_principal.ps1
         client-id: ${{ secrets.ARM_CLIENT_ID }}
         tenant-id: ${{ secrets.ARM_TENANT_ID }}
         subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
@@ -61,7 +62,7 @@ jobs:
         Get-ChildItem -Path Env: -Recurse -Include * | Sort-Object -Property Name
       shell: pwsh
 
-    - name: Show Azure region
+    - name: Show runner Azure region
       run: | 
         try {
             $vmMetadata = (Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET -NoProxy -Uri "http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01" -TimeoutSec 1)
