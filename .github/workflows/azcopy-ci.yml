@@ -185,7 +185,7 @@ jobs:
         $upload = (Get-ChildItem $uploadDirectory -Recurse -Force | Sort-Object -Property FullName)
         $downloadDirectory = $env:FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER
         $download = (Get-ChildItem $downloadDirectory -Recurse -Force | Sort-Object -Property FullName)
-        if (!$download -or $download.Length -eq 0) {
+        if (!$download -or ($download.Length -eq 0)) {
           throw "Download was empty"
         }
 
