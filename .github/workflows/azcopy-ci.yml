@@ -30,17 +30,18 @@ permissions:
 jobs:
   syncTest:
     name: Create storage, sync & destroy
-    # defaults:
-    #   run:
-    #     working-directory: scripts
+    defaults:
+      run:
+        working-directory: scripts
     runs-on: ubuntu-latest
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
 
     - name: Use Azure CLI
-      uses: azure/login@v1 #.4.1
+      uses: azure/login@v1
       with:
+        # Using OpenID Connect / Workload Identity
         client-id: ${{ secrets.ARM_CLIENT_ID }}
         tenant-id: ${{ secrets.ARM_TENANT_ID }}
         subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
@@ -60,6 +61,22 @@ jobs:
         Get-ChildItem -Path Env: -Recurse -Include * | Sort-Object -Property Name
       shell: pwsh
 
+    # https://docs.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-portal#grant-access-from-an-internet-ip-range
+    - name: Show Azure region
+      run: | 
+        try {
+            $vmMetadata = (Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET -NoProxy -Uri "http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01" -TimeoutSec 1)
+        } catch {
+            $vmMetadata = $null
+        }
+        if ($vmMetadata) {
+            return $vmMetadata.location 
+            Write-Host "Running in '$($vmMetadata.location)'"
+        } else {
+            Write-Host "Could not determine region"
+        }
+      shell: pwsh
+
     - name: Create Storage Account
       run: | 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
@@ -68,10 +85,10 @@ jobs:
           $DebugPreference = "Continue"
         }
 
-        ./scripts/create_storage_account.ps1 -Container $env:FILES_SYNC_STORAGE_CONTAINER `
-                                             -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
-                                             -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
-                                             -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        ./create_storage_account.ps1 -Container $env:FILES_SYNC_STORAGE_CONTAINER `
+                                     -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
+                                     -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
+                                     -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }}
       shell: pwsh
 
     - name: Prepare upload
@@ -119,7 +136,7 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./scripts/sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
       shell: pwsh
 
     - name: Clone Storage Account
@@ -130,8 +147,8 @@ jobs:
           $DebugPreference = "Continue"
         }
 
-        ./scripts/clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
-                                            -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE
+        ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
+                                    -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE
       shell: pwsh
 
     - name: Download with AzCopy
@@ -150,13 +167,13 @@ jobs:
         $downloadDirectory = (Join-Path $env:RUNNER_WORKSPACE "download")
         $downloadDirectoryStorageContainer = (Join-Path $downloadDirectory $env:FILES_SYNC_STORAGE_CONTAINER)
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
-        ./scripts/download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
-                                            -Destination $downloadDirectory
+        ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
+                                    -Destination $downloadDirectory
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
 
-    - name: Compare upload & download
+    - name: Compare download with upload
       run: | 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
