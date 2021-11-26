@@ -1,18 +1,22 @@
 #!/usr/bin/env pwsh
+<#
+.SYNOPSIS 
+    Download from Azure storage account
+#>
 #Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$true)][string]$Source,
     [parameter(Mandatory=$true)][string]$Destination,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7,
-    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID ?? $env:ARM_TENANT_ID) 
+    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID) 
 
 Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
 $logFile = Create-LogFile
-$tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
+$tempDirectory = (Get-TempDirectory) -replace "\$([IO.Path]::DirectorySeparatorChar)$",""
 $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
 $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
 
@@ -36,9 +40,13 @@ if (!$TenantId) {
     Write-Output "$($PSStyle.Formatting.Error)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
-Login-Az -TenantId $TenantId -SkipAzCopy # Rely on SAS tokens for AzCopy
+Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
 
 $storageAccount = Get-StorageAccount $storageAccountName
+if (!$storageAccount) {
+    Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph. Make sure you're logged into the right Azure Active Directory tenant (current: $SourceTenantId). Exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
+    exit
+}
 $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
                                        -ResourceGroupName $storageAccount.resourceGroup `
                                        -SubscriptionId $storageAccount.subscriptionId `
@@ -109,6 +117,11 @@ do {
         Write-Host " "
     } catch {
         Calculate-BackOff
+        if ($DebugPreference -ieq "Continue") {
+            $_.Exception | Format-List -Force
+            $_ | Format-List -Force
+        }
+        Write-Output "$_ $($_.ScriptStackTrace)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
     }
 
 } while ($(Continue-BackOff))

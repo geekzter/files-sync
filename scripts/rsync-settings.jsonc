@@ -6,6 +6,10 @@
     "syncPairs" : [
         {
             "source": "~/.??*",
+            "exclude": [
+                "*cache*",
+                "*temp*"
+            ],
             "target": "/Volumes/External/Config",
             "delete": false
         }

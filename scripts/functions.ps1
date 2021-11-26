@@ -53,6 +53,23 @@ function Open-Firewall (
     }
 }
 
+function Build-AzCopyArgs (
+    [parameter(Mandatory=$false)][switch]$Delete,
+    [parameter(Mandatory=$false)][switch]$DryRun
+) {
+    $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
+    $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
+    if ($Delete) {
+        $azcopyArgs += " --delete-destination"
+    }
+    if ($DryRun) {
+        $azcopyArgs += " --dry-run"
+    }
+    $azcopyArgs += " --log-level $(Get-AzCopyLogLevel)"
+
+    return $azcopyArgs
+}
+
 function Close-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
@@ -96,16 +113,98 @@ function Create-SasToken (
         $sasPermissions += "d"
     }
     az storage account generate-sas --account-key $(az storage account keys list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "[0].value" -o tsv) `
+                                    --account-name $StorageAccountName `
                                     --expiry "$([DateTime]::UtcNow.AddDays($SasTokenValidityDays).ToString('s'))Z" `
-                                    --id $storageAccount.id `
                                     --permissions $sasPermissions `
                                     --resource-types co `
                                     --services b `
+                                    --subscription $SubscriptionId `
                                     --start "$([DateTime]::UtcNow.AddDays(-30).ToString('s'))Z" `
                                     -o tsv | Set-Variable storageAccountToken
     Write-Debug "storageAccountToken: $storageAccountToken"
     Write-Verbose "Generated SAS token for '$StorageAccountName'"
     return $storageAccountToken
+}
+
+function Execute-AzCopy (
+    [parameter(Mandatory=$true)][string]$AzCopyCommand,
+    [parameter(Mandatory=$true)][string]$Source,
+    [parameter(Mandatory=$true)][string]$Target,
+    [parameter(Mandatory=$true)][string]$LogFile
+) {
+
+    # Redirect temporary files to the OS default location, if not already redirected
+    $tempDirectory = (Get-TempDirectory) -replace "\$([IO.Path]::DirectorySeparatorChar)$",""
+    $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
+    $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
+
+    $backOffMessage = "azcopy command '$AzCopyCommand' did not execute (could not find azcopy job ID)"
+    do {
+        Wait-BackOff
+
+        try {
+            Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
+            Write-Output $AzCopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
+            try {
+                # Use try / finally, so we can gracefully intercept Ctrl-C
+                Invoke-Expression $AzCopyCommand
+            } finally {
+                # Fetch Job ID, so we can find azcopy log and append it to the script log file
+                $jobId = Get-AzCopyLatestJobId
+                if ($jobId -and ($jobId -ne $previousJobId)) {
+                    Remove-Message $backOffMessage # Back off message superseded by job result
+                    $jobLogFile = ((Join-Path -Path $env:AZCOPY_LOG_LOCATION -ChildPath "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+                    if (Test-Path $jobLogFile) {
+                        if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
+                            Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
+                        }
+                        Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                    } else {
+                        Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                    }
+                    # Determine job status
+                    $jobStatus = Get-AzCopyJobStatus -JobId $jobId
+                    switch ($jobStatus) {
+                        "Completed" {
+                            Reset-BackOff
+                            Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
+                        }
+                        "CompletedWithErrors" {
+                            # This can happen when a drive is (temporarily) unplugged, let's retry
+                            Calculate-BackOff
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                        }
+                        default {
+                            Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                        }
+                    }
+                } else {
+                    Calculate-BackOff
+                    Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
+                    if (Get-BackOff -le 60) {
+                        Write-Host $backOffMessage
+                    } else {
+                        Write-Warning $backOffMessage
+                    }
+                }
+                
+                $exitCode = $LASTEXITCODE
+                if ($exitCode -ne 0) {
+                    Write-Output "azcopy command '$AzCopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
+                    exit $exitCode
+                }
+            }
+        } catch {
+            Calculate-BackOff
+            if ($DebugPreference -ieq "Continue") {
+                $_.Exception | Format-List -Force
+                $_ | Format-List -Force
+            }
+            Write-Output "$_ $($_.ScriptStackTrace)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
+        }
+
+    } while ($(Continue-BackOff))
 }
 
 # AzCopy
@@ -142,28 +241,50 @@ function Get-AzCopyLogLevel () {
     return "NONE"
 }
 
+function Get-LoggedInPrincipal () {
+    az account show --query user -o json | ConvertFrom-Json | Set-Variable principal
+    switch ($principal.Type) {
+        "user" {
+            az ad signed-in-user show --query objectId -o tsv | Set-Variable objectId
+        }
+        "servicePrincipal" {
+            az ad sp show --id $principal.name --query objectId -o tsv | Set-Variable objectId
+        }
+        default {
+            Write-Warning "Could not determine objectId for user type '$($principal.Type)'"
+        }
+    }
+    Write-Debug "objectId: $objectId"
+    $principal | Add-Member -MemberType NoteProperty -Name objectId -Value $objectId -Force
+    $principal | Out-String | Format-List | Write-Debug
+    return $principal
+}
+
 function Get-StorageAccount (
     [parameter(Mandatory=$true)][string]$StorageAccountName
 ) {
     az graph query -q "resources | where type =~ 'microsoft.storage/storageaccounts' and name == '$StorageAccountName'" `
+                   -a `
                    --query "data" `
                    -o json | ConvertFrom-Json | Set-Variable storageAccount
     return $storageAccount
 }
 
 function Login-Az (
-    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
-    [parameter(Mandatory=$false)][switch]$SkipAzCopy
+    [parameter(Mandatory=$false)][ref]$TenantId=$env:AZCOPY_TENANT_ID,
+    [parameter(Mandatory=$false)][switch]$SkipAzCopy,
+    [parameter(Mandatory=$false)][string]$LogFile
 ) {
+
     # Are we logged into the wrong tenant?
     Invoke-Command -ScriptBlock {
         $Private:ErrorActionPreference = "Continue"
-        if ($TenantId) {
+        if ($TenantId.Value -and ($TenantId.Value -ne [guid]::Empty.ToString())) {
             $script:loggedInTenantId = $(az account show --query tenantId -o tsv 2>$null)
         }
     }
-    if ($loggedInTenantId -and ($loggedInTenantId -ine $TenantId)) {
-        Write-Warning "Logged into tenant $loggedInTenantId instead of $TenantId (`$TenantId), logging off az session"
+    if ($loggedInTenantId -and ($loggedInTenantId -ine $TenantId.Value)) {
+        Write-Warning "Logged into tenant $loggedInTenantId instead of $($TenantId.Value), logging off az session"
         az logout -o none
     }
 
@@ -182,38 +303,55 @@ function Login-Az (
     }
     $login = ($loginError -or $userError)
     if ($login) {
-        if ($TenantId) {
-            az login -t $TenantId -o none
+        if ($TenantId.Value) {
+            Write-Output "Azure Active Directory Tenant ID is '$($TenantId.Value)'" | Tee-Object -FilePath $LogFile -Append | Write-Debug
+            az login -t $TenantId.Value -o none
         } else {
+            Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $LogFile -Append | Write-Host
             az login -o none
+            $TenantId.Value = $(az account show --query tenantId -o tsv)
         }
+        Write-Output "Using Azure Active Directory Tenant '$($TenantId.Value)'" | Tee-Object -FilePath $LogFile -Append | Write-Verbose
     }
 
     $SkipAzCopy = ($SkipAzCopy -or (Get-Item env:AZCOPY_AUTO_LOGIN_TYPE -ErrorAction SilentlyContinue))
     if (!$SkipAzCopy) {
         # There's no way to check whether we have a session, always (re-)authenticate
         Start-Process "https://microsoft.com/devicelogin"
-        if ($TenantId) {
-            azcopy login --tenant-id $tenantId
+        if ($TenantId.Value -and ($TenantId.Value -ne [guid]::Empty.ToString())) {
+            azcopy login --tenant-id $TenantId.Value
         } else {
             azcopy login
         }
     }
 }
 
+function Sync-AzureToAzure (
+    [parameter(Mandatory=$true)][string]$Source,      
+    [parameter(Mandatory=$false)][string]$SourceToken,   
+    [parameter(Mandatory=$true)][string]$Target,   
+    [parameter(Mandatory=$false)][string]$TargetToken,   
+    [parameter(Mandatory=$false)][switch]$Delete,
+    [parameter(Mandatory=$false)][switch]$DryRun,
+    [parameter(Mandatory=$true)][string]$LogFile
+) {
+    $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
+    $azcopyCommand = "azcopy sync '${Source}?${SourceToken}' '${Target}?${TargetToken}' $azcopyArgs"
+
+    Execute-AzCopy -AzCopyCommand $azcopyCommand `
+                   -Source $Source `
+                   -Target $Target `
+                   -LogFile $LogFile
+}
+
 function Sync-DirectoryToAzure (
-    [parameter(Mandatory=$true)][string]$Source,   
+    [parameter(Mandatory=$true)][string]$Source,      
     [parameter(Mandatory=$true)][string]$Target,   
     [parameter(Mandatory=$false)][string]$Token,   
     [parameter(Mandatory=$false)][switch]$Delete,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
-    # Redirect temporary files to the OS default location, if not already redirected
-    $tempDirectory = (($env:TEMP ?? $env:TMP ?? $env:TMPDIR) -replace "\$([IO.Path]::DirectorySeparatorChar)$","")
-    $env:AZCOPY_LOG_LOCATION ??= $tempDirectory
-    $env:AZCOPY_JOB_PLAN_LOCATION ??= $tempDirectory
-
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
         Write-Output "$($PSStyle.Formatting.Error)azcopy not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
@@ -227,19 +365,7 @@ function Sync-DirectoryToAzure (
         return
     }
 
-    # Get latest Job ID, so we can detect whether a job was created later
-    $previousJobId = Get-AzCopyLatestJobId
-
-    $excludePattern = (((Get-Content (Join-Path $PSScriptRoot exclude.txt) -Raw) -replace "`r","") -replace "`n","`;")
-    $azcopyArgs = "--exclude-pattern=`"${excludePattern}`" --recursive"
-    if ($Delete) {
-        $azcopyArgs += " --delete-destination"
-    }
-    if ($DryRun) {
-        $azcopyArgs += " --dry-run"
-    }
-    $azcopyArgs += " --log-level $(Get-AzCopyLogLevel)"
-
+    $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
     if ($Token) {
         $azCopyTarget = "${Target}?${Token}"
     } else {
@@ -248,75 +374,17 @@ function Sync-DirectoryToAzure (
     $Source = (Resolve-Path $Source).Path
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
 
-    $backOffMessage = "azcopy command '$azcopyCommand' did not execute (could not find azcopy job ID)"
-    do {
-        Wait-BackOff
-
-        try {
-            Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
-            Write-Output $azcopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
-            try {
-                # Use try / finally, so we can gracefully intercept Ctrl-C
-                Invoke-Expression $azcopyCommand
-            } finally {
-                # Fetch Job ID, so we can find azcopy log and append it to the script log file
-                $jobId = Get-AzCopyLatestJobId
-                if ($jobId -and ($jobId -ne $previousJobId)) {
-                    Remove-Message $backOffMessage # Back off message superseded by job result
-                    $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
-                    if (Test-Path $jobLogFile) {
-                        if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
-                            Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
-                        }
-                        Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
-                    } else {
-                        Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-                    }
-                    # Determine job status
-                    $jobStatus = Get-AzCopyJobStatus -JobId $jobId
-                    switch ($jobStatus) {
-                        "Completed" {
-                            Reset-BackOff
-                            Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $logFile -Append | Write-Host
-                        }
-                        "CompletedWithErrors" {
-                            # This can happen when a drive is (temporarily) unplugged, let's retry
-                            Calculate-BackOff
-                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
-                        }
-                        default {
-                            Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
-                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $logFile -Append | Add-Message -Passthru | Write-Warning
-                        }
-                    }
-                } else {
-                    Calculate-BackOff
-                    Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
-                    if (Get-BackOff -le 60) {
-                        Write-Host $backOffMessage
-                    } else {
-                        Write-Warning $backOffMessage
-                    }
-                }
-                
-                $exitCode = $LASTEXITCODE
-                if ($exitCode -ne 0) {
-                    Write-Output "azcopy command '$azcopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
-                    exit $exitCode
-                }
-            }
-        } catch {
-            Write-Output $_ | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error
-            Calculate-BackOff
-        }
-
-    } while ($(Continue-BackOff))
+    Execute-AzCopy -AzCopyCommand $azcopyCommand `
+                   -Source $Source `
+                   -Target $Target `
+                   -LogFile $LogFile
 }
 
 # rsync
 function Sync-Directories (
     [parameter(Mandatory=$true)][string]$Source,   
     [parameter(Mandatory=$false)][string]$Pattern,   
+    [parameter(Mandatory=$false)][string[]]$Exclude,
     [parameter(Mandatory=$true)][string]$Target,   
     [parameter(Mandatory=$false)][switch]$Delete=$false,
     [parameter(Mandatory=$false)][switch]$DryRun,
@@ -350,6 +418,9 @@ function Sync-Directories (
     $rsyncArgs = "-auz --modify-window=1 --exclude-from=$(Join-Path $PSScriptRoot exclude.txt)"
     if ($Pattern) {
         $rsyncArgs += " --include=$Pattern --exclude=*"
+    }
+    foreach ($excludeExpression in $Exclude) {
+        $rsyncArgs += " --exclude=${excludeExpression}"
     }
     if ($Delete) {
         $rsyncArgs += " --delete"
@@ -401,12 +472,25 @@ function Add-Message (
     [parameter(Mandatory=$true,ValueFromPipeline=$true)][string]$Message,
     [parameter(Mandatory=$false)][switch]$Passthru
 ) {
-    # Strip tokens from message
-    $storedMessage = $Message -replace "\?se.*\%3D",""
+    $storedMessage = $Message -replace "\?se.*\%3D","" # Strip tokens from message
+    if ($DebugPreference -ieq "Continue") {
+        $storedMessage += "`n$(Get-PSCallStack)"
+    }
     $script:messages.Add($storedMessage) | Out-Null
     if ($Passthru) {
         Write-Output $Message
     }
+}
+
+function Get-TempDirectory () {
+    $tempDirectory = ($env:TEMP ?? $env:TMP ?? $env:TMPDIR)
+    if (!$tempDirectory) {
+        $tempFile = New-TemporaryFile
+        $tempDirectory = $tempFile.DirectoryName
+        Remove-Item $tempFile | Out-Null
+    }
+
+    return $tempDirectory
 }
 
 function Get-Settings (
@@ -440,4 +524,13 @@ function Remove-Message (
             $script:messages.RemoveAt($lastIndexOfMessage)
         }
     } while ($lastIndexOfMessage -ge 0)
+}
+
+function Validate-AzCli (
+    [parameter(Mandatory=$true)][string]$LogFile
+) {
+    if (!(Get-Command az -ErrorAction SilentlyContinue)) {
+        Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
+        exit
+    }
 }

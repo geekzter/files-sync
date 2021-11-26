@@ -22,8 +22,9 @@ $settings = Get-Settings -SettingsFile $SettingsFile -LogFile $logFile
 try {
     foreach ($directoryPair in $settings.syncPairs) {
         $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
+        Set-Variable -Name exclude -Value $directoryPair.exclude -ErrorAction SilentlyContinue
         Set-Variable -Name pattern -Value $directoryPair.pattern -ErrorAction SilentlyContinue
-        Sync-Directories -Source $directoryPair.source -Pattern $pattern -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
+        Sync-Directories -Source $directoryPair.source -Pattern $pattern -Exclude $exclude -Target $directoryPair.target -Delete:$delete -DryRun:$DryRun -LogFile $logFile
     }
 } finally {
     Write-Host " "

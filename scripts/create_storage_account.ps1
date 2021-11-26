@@ -9,9 +9,10 @@
 param ( 
     [parameter(Mandatory=$true)][string]$Name,
     [parameter(Mandatory=$true)][string]$ResourceGroup,
-    [parameter(Mandatory=$false)][string]$Location="westeurope",
+    [parameter(Mandatory=$false)][string]$Location=$env:AZURE_DEFAULTS_LOCATION,
     [parameter(Mandatory=$false)][string[]]$Container,
-    [parameter(Mandatory=$false)][string]$SubscriptionId=$env:ARM_SUBSCRIPTION_ID,
+    [parameter(Mandatory=$false)][string]$SubscriptionId,
+    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
     [parameter(Mandatory=$false)][int]$MaxSasExpirationDays=30,
     [parameter(Mandatory=$false)][switch]$CreateServicePrincipal
@@ -21,22 +22,18 @@ Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
 
-if (!(Get-Command az -ErrorAction SilentlyContinue)) {
-    Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
-    exit
+$logFile = Create-LogFile
+
+Validate-AzCli $logFile
+Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
+
+$principal = (Get-LoggedInPrincipal)
+$signedInObjectId = $principal.objectId
+[System.Collections.ArrayList]$tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
+if ($env:GITHUB_RUN_ID) {
+    # Used in CI to clean up resources
+    $tags.Add("runid=${env:GITHUB_RUN_ID}")
 }
-
-Login-Az -SkipAzCopy
-
-if ($Subscription) {
-    az account set -s $SubscriptionId
-} else {
-    $SubscriptionId=$(az account show --query id -o tsv)
-}
-Write-Information "Using subscription '$(az account list --query "[?id=='${SubscriptionId}'].name" -o tsv)'"
-
-$signedInObjectId=$(az ad signed-in-user show --query objectId -o tsv)
-$tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
 
 # Create or update resource group
 Write-Verbose "Creating resource group '$ResourceGroup'..."
@@ -50,7 +47,7 @@ az role assignment create --role $role `
                           --assignee-object-id $signedInObjectId `
                           --assignee-principal-type $(az account show --query user.type -o tsv) `
                           -g $ResourceGroup --subscription $SubscriptionId `
-                          -o none
+                          -o json | Write-Debug
 
 # Create Service Principal
 if ($CreateServicePrincipal) {
@@ -61,11 +58,11 @@ if ($CreateServicePrincipal) {
                             --role $role `
                             -o json | ConvertFrom-Json | Set-Variable servicePrincipal
     Write-Host "Created/updated Service Principal '$($servicePrincipal.displayName)'"
-    $servicePrincipal | Format-List
+    $servicePrincipal | Out-String | Format-List
 }
 
 # Create or update Storage Account
-Write-Verbose "Creating/updaing storage account '$Name'..."
+Write-Verbose "Creating/updating storage account '$Name'..."
 az storage account create -n $Name -g $ResourceGroup -l $Location --subscription $SubscriptionId `
                           --access-tier hot `
                           --allow-blob-public-access false `
@@ -77,22 +74,14 @@ az storage account create -n $Name -g $ResourceGroup -l $Location --subscription
                           --sku Standard_RAGRS `
                           --tags $tags `
                           --query id -o tsv | Set-Variable storageAccountId
-Write-Host "Created/updated storage account $storageAccountId"
-
-# Add resource lock
-Write-Verbose "Locking access to '$Name' so it can't be deleted..."
-az lock create --lock-type CanNotDelete `
-               --name "${Name}-lock" `
-               --resource $storageAccountId `
-               -o none
-Write-Host "Locked access to '$Name' so it can't be deleted"
+Write-Host "Created/updated storage account '$storageAccountId'"
 
 Write-Verbose "Creating SAS expiration policy for '$Name' ($MaxSasExpirationDays days)"
 az storage account update --name $Name `
                           --resource-group $ResourceGroup `
                           --sas-expiration-period "${MaxSasExpirationDays}.00:00:00" `
                           --subscription $SubscriptionId `
-                          -o none
+                          -o json | Write-Debug
 Write-Host "Created SAS expiration policy for '$Name' ($MaxSasExpirationDays days)"
 
 # Enable soft delete
@@ -105,10 +94,16 @@ az storage account blob-service-properties update `
                           --account-name $Name `
                           --resource-group $ResourceGroup `
                           --subscription $SubscriptionId `
-                          -o none
+                          -o json | Write-Debug
 
 # Add firewall rule on storage account
 Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
+
+if ($Container) {
+    $waitSeconds = 60
+    Write-Host "Waiting $waitSeconds seconds for firewall rules update to reflect..."
+    Start-Sleep -Seconds $waitSeconds
+}
 
 # Create / update storage containers                          
 foreach ($cont in $Container) {
@@ -119,9 +114,20 @@ foreach ($cont in $Container) {
                                 --public-access off `
                                 --resource-group $ResourceGroup `
                                 --subscription $SubscriptionId `
-                                -o none
+                                -o json | Write-Debug
     Write-Host "Created container '$cont' in storage account '$Name'..."
 }
+
+# Add resource lock
+Write-Verbose "Locking access to '$Name' so it can't be deleted..."
+az lock create --lock-type CanNotDelete `
+               --name "${Name}-lock" `
+               --resource $Name `
+               --resource-type "Microsoft.Storage/storageAccounts" `
+               -g $ResourceGroup `
+               --subscription $SubscriptionId `
+               -o json | Write-Debug
+Write-Host "Locked access to '$Name' so it can't be deleted"
 
 # Get urls to storage containers
 $blobBaseUrl = $(az storage account show -n $Name -g $ResourceGroup --subscription $SubscriptionId --query "primaryEndpoints.blob" -o tsv)
