@@ -61,7 +61,6 @@ jobs:
         Get-ChildItem -Path Env: -Recurse -Include * | Sort-Object -Property Name
       shell: pwsh
 
-    # https://docs.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-portal#grant-access-from-an-internet-ip-range
     - name: Show Azure region
       run: | 
         try {
@@ -70,8 +69,10 @@ jobs:
             $vmMetadata = $null
         }
         if ($vmMetadata) {
-            return $vmMetadata.location 
             Write-Host "Running in '$($vmMetadata.location)'"
+            if ($vmMetadata.location -eq $env:AZURE_DEFAULTS_LOCATION) {
+              Write-Waning "Deployment region is also '${env:AZURE_DEFAULTS_LOCATION}'. Deployment may fail due to this Azure Storage limitation: https://docs.microsoft.com/en-us/azure/storage/common/storage-network-security?tabs=azure-portal#grant-access-from-an-internet-ip-range"
+            }
         } else {
             Write-Host "Could not determine region"
         }
