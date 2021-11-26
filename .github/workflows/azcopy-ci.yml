@@ -2,13 +2,11 @@ name: azcopy-ci
 
 on:
   push:
-    branches: [ main, improvements ]
     paths-ignore:
     - '**/README.md'
     - '**/LICENSE'
     - 'visuals/**'
   pull_request:
-    branches: [ main ]
     paths-ignore:
     - '**/README.md'
     - '**/LICENSE'
