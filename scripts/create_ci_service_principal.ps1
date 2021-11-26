@@ -43,7 +43,7 @@ if ($remoteRepoUrl -match "https://(?<host>[\w\.]+)/(?<repo>.+).git$") {
 }
 $currentBranch = $(git rev-parse --abbrev-ref HEAD)
 $subjects = [System.Collections.ArrayList]@("repo:${repoName}:ref:refs/heads/main",`
-            "repo:${repoName}:pull-request",`
+            "repo:${repoName}:pull_request",`
             "repo:${repoName}:ref:refs/tags/azure"`
 )
 if ($currentBranch -ne "main") {
@@ -78,7 +78,7 @@ az rest --method GET `
 # Create federation subjects
 foreach ($subject in $subjects) {
     if (!$federatedSubjects -or !$federatedSubjects.Contains($subject)) {
-        $federationName = ($subject -replace ":|/","-")
+        $federationName = ($subject -replace ":|/|_","-")
 
         Get-Content (Join-Path $PSScriptRoot "federated-identity-request-template.jsonc") | ConvertFrom-Json | Set-Variable request
         $request.name = $federationName
