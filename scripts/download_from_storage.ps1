@@ -54,8 +54,8 @@ $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
 
 # Add firewall rule on storage account
 Open-Firewall -StorageAccountName $storageAccountName `
-               -ResourceGroupName $storageAccount.resourceGroup `
-               -SubscriptionId $storageAccount.subscriptionId
+              -ResourceGroupName $storageAccount.resourceGroup `
+              -SubscriptionId $storageAccount.subscriptionId
 
 # Data plane access
 $azcopyArgs = "--recursive --log-level $(Get-AzCopyLogLevel) --overwrite prompt"

@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZCOPY_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
   FILES_SYNC_STORAGE_CONTAINER: artifacts
@@ -40,10 +40,9 @@ jobs:
       uses: azure/login@v1
       with:
         # Using OpenID Connect / Workload Identity
-        # Create credential with create_ci_service_principal.ps1
-        client-id: ${{ secrets.ARM_CLIENT_ID }}
-        tenant-id: ${{ secrets.ARM_TENANT_ID }}
-        subscription-id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     - name: Prepare environment variables
       run: | 
@@ -56,7 +55,7 @@ jobs:
     - name: List environment variables
       run: | 
         # List environment variables
-        Get-ChildItem -Path Env: -Recurse -Include ARM_*,AZCOPY_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
+        Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,AZURE_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
         Get-ChildItem -Path Env: -Recurse -Include * | Sort-Object -Property Name
       shell: pwsh
 
@@ -88,7 +87,7 @@ jobs:
         ./create_storage_account.ps1 -Container $env:FILES_SYNC_STORAGE_CONTAINER `
                                      -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                      -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
-                                     -SubscriptionId ${{ secrets.ARM_SUBSCRIPTION_ID }}
+                                     -SubscriptionId ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       shell: pwsh
 
     - name: Prepare upload
