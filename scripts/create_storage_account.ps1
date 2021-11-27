@@ -96,13 +96,9 @@ az storage account blob-service-properties update `
                           --subscription $SubscriptionId `
                           -o json | Write-Debug
 
-# Add firewall rule on storage account
-Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
-
 if ($Container) {
-    $waitSeconds = 90
-    Write-Host "Waiting $waitSeconds seconds for firewall rules update to reflect..."
-    Start-Sleep -Seconds $waitSeconds
+    # Add firewall rule on storage account
+    Open-Firewall -StorageAccountName $Name -ResourceGroupName $ResourceGroup -SubscriptionId $SubscriptionId
 }
 
 # Create / update storage containers                          

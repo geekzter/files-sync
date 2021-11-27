@@ -33,7 +33,8 @@ function Wait-BackOff () {
 function Open-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
-    [parameter(Mandatory=$true)][string]$SubscriptionId
+    [parameter(Mandatory=$true)][string]$SubscriptionId,
+    [parameter(Mandatory=$true)][int]$WaitToPropagateSeconds=45
 ) {
     # Add firewall rule on storage account
     Write-Host "Opening firewall on Storage Account '$StorageAccountName'..."
@@ -50,6 +51,10 @@ function Open-Firewall (
                                             --subscription $SubscriptionId `
                                             -o none
         Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+
+        Write-Host "Waiting $WaitToPropagateSeconds seconds for firewall rules update to reflect..."
+        Start-Sleep -Seconds $WaitToPropagateSeconds
+
     }
 }
 
