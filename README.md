@@ -1,3 +1,5 @@
+[![azcopy-ci](https://github.com/geekzter/files-sync/actions/workflows/azcopy-ci.yml/badge.svg)](https://github.com/geekzter/files-sync/actions/workflows/azcopy-ci.yml)
+
 # File sync scripts for azcopy & rsync
 This repo contains a number of scripts that act as wrappers around [azcopy](https://github.com/Azure/azure-storage-azcopy) and [rsync](https://github.com/WayneD/rsync). You can find them [here](./scripts).
 
