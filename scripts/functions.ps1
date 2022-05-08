@@ -294,29 +294,18 @@ function Login-Az (
     }
 
     # Are we logged in?
-    Invoke-Command -ScriptBlock {
-        $Private:ErrorActionPreference = "Continue"
-        # Test whether we are logged in
-        $script:loginError = $(az account show -o none 2>&1)
-        if (!$loginError) {
-            $Script:userType = $(az account show --query "user.type" -o tsv)
-            if ($userType -ieq "user") {
-                # Test whether credentials have expired
-                $Script:userError = $(az ad signed-in-user show -o none 2>&1)
-            } 
+    $account = $null
+    az account show 2>$null | ConvertFrom-Json | Set-Variable account
+    # Set Azure CLI context
+    if (-not $account) {
+        if ($env:CODESPACES -ieq "true") {
+            $azLoginSwitches = "--use-device-code"
         }
-    }
-    $login = ($loginError -or $userError)
-    if ($login) {
-        if ($TenantId.Value) {
-            Write-Output "Azure Active Directory Tenant ID is '$($TenantId.Value)'" | Tee-Object -FilePath $LogFile -Append | Write-Debug
-            az login -t $TenantId.Value -o none
+        if ($env:ARM_TENANT_ID) {
+            az login -t $env:ARM_TENANT_ID -o none $($azLoginSwitches)
         } else {
-            Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $LogFile -Append | Write-Host
-            az login -o none
-            $TenantId.Value = $(az account show --query tenantId -o tsv)
+            az login -o none $($azLoginSwitches)
         }
-        Write-Output "Using Azure Active Directory Tenant '$($TenantId.Value)'" | Tee-Object -FilePath $LogFile -Append | Write-Verbose
     }
 
     $SkipAzCopy = ($SkipAzCopy -or (Get-Item env:AZCOPY_AUTO_LOGIN_TYPE -ErrorAction SilentlyContinue))
