@@ -301,10 +301,13 @@ function Login-Az (
         if ($env:CODESPACES -ieq "true") {
             $azLoginSwitches = "--use-device-code"
         }
-        if ($env:ARM_TENANT_ID) {
-            az login -t $env:ARM_TENANT_ID -o none $($azLoginSwitches)
+        if ($TenantId.Value) {
+            Write-Output "Azure Active Directory Tenant ID is '$($TenantId.Value)'" | Tee-Object -FilePath $LogFile -Append | Write-Debug
+            az login -t $TenantId.Value -o none $($azLoginSwitches)
         } else {
+            Write-Output "Azure Active Directory Tenant ID not explicitely set" | Tee-Object -FilePath $LogFile -Append | Write-Host
             az login -o none $($azLoginSwitches)
+            $TenantId.Value = $(az account show --query tenantId -o tsv)
         }
     }
 
