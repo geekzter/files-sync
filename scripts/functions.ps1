@@ -157,8 +157,8 @@ function Execute-AzCopy (
                 break
             } finally {
                 # Fetch Job ID, so we can find azcopy log and append it to the script log file
-                echo 'do nothing in finally'
-                # BUG: https://github.com/Azure/azure-storage-azcopy/issues/1777
+                Write-Warning 'do nothing in finally (https://github.com/Azure/azure-storage-azcopy/issues/1777)'
+                # BUG: https://github.com/Azure/azure-storage-azcopy/issues/1777#issuecomment-1139365725
                 # $jobId = Get-AzCopyLatestJobId
                 # if ($jobId -and ($jobId -ne $previousJobId)) {
                 #     Remove-Message $backOffMessage # Back off message superseded by job result
