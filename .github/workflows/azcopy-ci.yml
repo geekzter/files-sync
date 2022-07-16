@@ -2,6 +2,8 @@ name: azcopy-ci
 
 on:
   push:
+    branches:
+    - main
     paths-ignore:
     - '**/README.md'
     - '**/LICENSE'
