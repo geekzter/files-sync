@@ -71,7 +71,7 @@ try {
                                                -Write `
                                                -Delete:$delete
         $storageAccount | Add-Member -NotePropertyName Token -NotePropertyValue $storageAccountToken
-        $storageAccounts.add($storageAccountName,$storageAccount)
+        $storageAccounts.add($storageAccountName,$storageAccount) | Out-Null
     }
 
     # Data plane access
