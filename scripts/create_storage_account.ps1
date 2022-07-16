@@ -28,7 +28,9 @@ Validate-AzCli $logFile
 Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
 
 $principal = (Get-LoggedInPrincipal)
-$signedInObjectId = $principal.objectId
+$signedInObjectId = $principal.id
+$principal | Format-List | Out-String | Write-Debug
+Write-Debug "Signed in principal with object id: $signedInObjectId"
 [System.Collections.ArrayList]$tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
 if ($env:GITHUB_RUN_ID) {
     # Used in CI to clean up resources

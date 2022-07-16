@@ -256,16 +256,17 @@ function Get-LoggedInPrincipal () {
     az account show --query user -o json | ConvertFrom-Json | Set-Variable principal
     switch ($principal.Type) {
         "user" {
-            az ad signed-in-user show --query objectId -o tsv | Set-Variable objectId
+            az ad signed-in-user show --query id -o tsv | Set-Variable objectId
         }
         "servicePrincipal" {
-            az ad sp show --id $principal.name --query objectId -o tsv | Set-Variable objectId
+            az ad sp show --id $principal.name --query id -o tsv | Set-Variable objectId
         }
         default {
             Write-Warning "Could not determine objectId for user type '$($principal.Type)'"
         }
     }
     Write-Debug "objectId: $objectId"
+    $principal | Add-Member -MemberType NoteProperty -Name id -Value $objectId -Force
     $principal | Add-Member -MemberType NoteProperty -Name objectId -Value $objectId -Force
     $principal | Out-String | Format-List | Write-Debug
     return $principal
