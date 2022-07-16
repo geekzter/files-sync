@@ -34,7 +34,7 @@ Write-Debug "Signed in principal with object id: $signedInObjectId"
 [System.Collections.ArrayList]$tags=@("application=files-sync","provisioner=azure-cli","provisoner-object-id=${signedInObjectId}")
 if ($env:GITHUB_RUN_ID) {
     # Used in CI to clean up resources
-    $tags.Add("runid=${env:GITHUB_RUN_ID}")
+    $tags.Add("runid=${env:GITHUB_RUN_ID}") | Out-Null
 }
 
 # Create or update resource group
