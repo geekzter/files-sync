@@ -16,7 +16,8 @@ param (
     [parameter(Mandatory=$false)][string]$TargetTenantId,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
-    [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7
+    [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7,
+    [parameter(Mandatory=$false)][switch]$SkipResourceLock
 ) 
 
 Write-Debug $MyInvocation.line
@@ -86,7 +87,8 @@ Login-Az -TenantId ([ref]$TargetTenantId) -LogFile $logFile -SkipAzCopy
                                                        -Container $sourceContainers `
                                                        -SubscriptionId $TargetSubscriptionId `
                                                        -TenantId $TargetTenantId `
-                                                       -RetentionDays $RetentionDays
+                                                       -RetentionDays $RetentionDays `
+                                                       -SkipResourceLock:$SkipResourceLock
 
 # Add firewall rule on target storage account
 Open-Firewall -StorageAccountName $TargetName `

@@ -15,7 +15,8 @@ param (
     [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
     [parameter(Mandatory=$false)][int]$MaxSasExpirationDays=30,
-    [parameter(Mandatory=$false)][switch]$CreateServicePrincipal
+    [parameter(Mandatory=$false)][switch]$CreateServicePrincipal,
+    [parameter(Mandatory=$false)][switch]$SkipResourceLock
 ) 
 
 Write-Debug $MyInvocation.line
@@ -116,16 +117,20 @@ foreach ($cont in $Container) {
     Write-Host "Created container '$cont' in storage account '$Name'..."
 }
 
-# Add resource lock
-Write-Verbose "Locking access to '$Name' so it can't be deleted..."
-az lock create --lock-type CanNotDelete `
-               --name "${Name}-lock" `
-               --resource $Name `
-               --resource-type "Microsoft.Storage/storageAccounts" `
-               -g $ResourceGroup `
-               --subscription $SubscriptionId `
-               -o json | Write-Debug
-Write-Host "Locked access to '$Name' so it can't be deleted"
+if ($SkipResourceLock) {
+    Write-Warning "Not locking access to '$Name'. No protecting added, so it can be deleted."
+} else {
+    # Add resource lock
+    Write-Verbose "Locking access to '$Name' so it can't be deleted..."
+    az lock create --lock-type CanNotDelete `
+                --name "${Name}-lock" `
+                --resource $Name `
+                --resource-type "Microsoft.Storage/storageAccounts" `
+                -g $ResourceGroup `
+                --subscription $SubscriptionId `
+                -o json | Write-Debug
+    Write-Host "Locked access to '$Name' so it can't be deleted."
+}
 
 # Get urls to storage containers
 $blobBaseUrl = $(az storage account show -n $Name -g $ResourceGroup --subscription $SubscriptionId --query "primaryEndpoints.blob" -o tsv)
