@@ -157,52 +157,50 @@ function Execute-AzCopy (
                 break
             } finally {
                 # Fetch Job ID, so we can find azcopy log and append it to the script log file
-                Write-Warning 'do nothing in finally (https://github.com/Azure/azure-storage-azcopy/issues/1777)'
-                # BUG: https://github.com/Azure/azure-storage-azcopy/issues/1777#issuecomment-1139365725
-                # $jobId = Get-AzCopyLatestJobId
-                # if ($jobId -and ($jobId -ne $previousJobId)) {
-                #     Remove-Message $backOffMessage # Back off message superseded by job result
-                #     $jobLogFile = ((Join-Path -Path $env:AZCOPY_LOG_LOCATION -ChildPath "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
-                #     if (Test-Path $jobLogFile) {
-                #         if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
-                #             Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
-                #         }
-                #         Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
-                #     } else {
-                #         Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-                #     }
-                #     # Determine job status
-                #     $jobStatus = Get-AzCopyJobStatus -JobId $jobId
-                #     switch ($jobStatus) {
-                #         "Completed" {
-                #             Reset-BackOff
-                #             Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
-                #         }
-                #         "CompletedWithErrors" {
-                #             # This can happen when a drive is (temporarily) unplugged, let's retry
-                #             Calculate-BackOff
-                #             Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-                #         }
-                #         default {
-                #             Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
-                #             Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
-                #         }
-                #     }
-                # } else {
-                #     Calculate-BackOff
-                #     Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
-                #     if (Get-BackOff -le 60) {
-                #         Write-Host $backOffMessage
-                #     } else {
-                #         Write-Warning $backOffMessage
-                #     }
-                # }
+                $jobId = Get-AzCopyLatestJobId
+                if ($jobId -and ($jobId -ne $previousJobId)) {
+                    Remove-Message $backOffMessage # Back off message superseded by job result
+                    $jobLogFile = ((Join-Path -Path $env:AZCOPY_LOG_LOCATION -ChildPath "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
+                    if (Test-Path $jobLogFile) {
+                        if (($WarningPreference -inotmatch "SilentlyContinue|Ignore") -or ($ErrorActionPreference -inotmatch "SilentlyContinue|Ignore")) {
+                            Select-String -Pattern FAILED -CaseSensitive -Path $jobLogFile | Write-Warning
+                        }
+                        Get-Content $jobLogFile | Add-Content -Path $LogFile # Append job log to script log
+                    } else {
+                        Write-Output "Could not find azcopy log file '${jobLogFile}' for job '$jobId'" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                    }
+                    # Determine job status
+                    $jobStatus = Get-AzCopyJobStatus -JobId $jobId
+                    switch ($jobStatus) {
+                        "Completed" {
+                            Reset-BackOff
+                            Write-Output "$($PSStyle.Formatting.FormatAccent)Completed$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
+                        }
+                        "CompletedWithErrors" {
+                            # This can happen when a drive is (temporarily) unplugged, let's retry
+                            Calculate-BackOff
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                        }
+                        default {
+                            Reset-BackOff # Back off will not help if azcopy completed unsuccessfully, the issue is most likely fatal
+                            Write-Output "$($PSStyle.Formatting.Error)$($PSStyle.Bold)$jobStatus$($PSStyle.Reset) '$Source' -> '$Target' (job '$jobId')" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning
+                        }
+                    }
+                } else {
+                    Calculate-BackOff
+                    Write-Output $backOffMessage | Tee-Object -FilePath $LogFile -Append | Add-Message
+                    if (Get-BackOff -le 60) {
+                        Write-Host $backOffMessage
+                    } else {
+                        Write-Warning $backOffMessage
+                    }
+                }
                 
-                # $exitCode = $LASTEXITCODE
-                # if ($exitCode -ne 0) {
-                #     Write-Output "azcopy command '$AzCopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
-                #     exit $exitCode
-                # }
+                $exitCode = $LASTEXITCODE
+                if ($exitCode -ne 0) {
+                    Write-Output "azcopy command '$AzCopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
+                    exit $exitCode
+                }
             }
         } catch {
             Calculate-BackOff
