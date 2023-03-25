@@ -150,7 +150,8 @@ jobs:
         }
 
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
-                                    -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE
+                                    -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
+                                    -SkipResourceLock
       shell: pwsh
 
     - name: Download with AzCopy
