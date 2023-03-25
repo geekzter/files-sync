@@ -80,7 +80,7 @@ do {
         Write-Output $azcopyCommand | Tee-Object -FilePath $logFile -Append | Write-Debug
         Invoke-Expression $azcopyCommand
 
-        Fetch Job ID, so we can find azcopy log and append it to the script log file
+        # Fetch Job ID, so we can find azcopy log and append it to the script log file
         $jobId = Get-AzCopyLatestJobId
         if ($jobId -and ($jobId -ne $previousJobId)) {
             $jobLogFile = ((Join-Path $env:AZCOPY_LOG_LOCATION "${jobId}.log") -replace "\$([IO.Path]::DirectorySeparatorChar)+","\$([IO.Path]::DirectorySeparatorChar)")
