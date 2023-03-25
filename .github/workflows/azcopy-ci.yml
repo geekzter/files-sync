@@ -107,7 +107,7 @@ jobs:
         Get-ChildItem $env:GITHUB_WORKSPACE -Recurse | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
-          Write-Host "To be uploaded files:"
+          Write-Host "Files to be uploaded:"
           Get-ChildItem $uploadDirectory -Recurse -Force | % {
             Write-Host $_.FullName
           }        
@@ -193,7 +193,7 @@ jobs:
         }
 
         if ($env:FILES_SYNC_DEBUG -ieq "true") {
-          Write-Host "Downloaded files:"
+          Write-Host "Files downloaded:"
           $download | % {
             Write-Host $_.FullName
           }
@@ -207,7 +207,7 @@ jobs:
           $diff | Format-Table
           throw "Test failed, download is different from upload"
         } else {
-          Write-Host "Upload & download file names match"
+          Write-Host "Names of files uploaded & downloaded match"
         }
 
         # Compare file sizes
@@ -217,7 +217,7 @@ jobs:
           $diff | Format-Table
           throw "Test failed, download file size is different from upload"
         } else {
-          Write-Host "Upload & download file sizes match"
+          Write-Host "Sizes of files uploaded & downloaded match"
         }
 
         # Calculate file hashes
@@ -236,7 +236,7 @@ jobs:
           $diff | Format-Table
           throw "Test failed, download file hash is different from upload"
         } else {
-          Write-Host "Upload & download file hashes match"
+          Write-Host "Hashes of files uploaded & downloaded match"
         }
 
       shell: pwsh
