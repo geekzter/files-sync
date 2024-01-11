@@ -23,7 +23,7 @@ $settings = Get-Settings -SettingsFile $SettingsFile -LogFile $logFile
 Validate-AzCli $logFile
 
 $tenantId = $settings.tenantId ?? $env:AZCOPY_TENANT_ID
-Login-Az -TenantId ([ref]$tenantID) -LogFile $logFile -SkipAzCopy
+Login-Az -TenantId ([ref]$tenantID) -LogFile $logFile
 
 try {
     # Create list of storage accounts

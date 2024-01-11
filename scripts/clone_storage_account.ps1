@@ -28,7 +28,7 @@ $logFile = Create-LogFile
 
 Validate-AzCli $logFile
 Write-Output "Logging into source tenant..." | Tee-Object -FilePath $LogFile -Append | Write-Host
-Login-Az -TenantId ([ref]$SourceTenantId) -LogFile $logFile -SkipAzCopy
+Login-Az -TenantId ([ref]$SourceTenantId) -LogFile $logFile
 
 # Retrieve storage account details using resource graph
 $sourceStorageAccount = Get-StorageAccount $SourceName
@@ -78,7 +78,7 @@ Write-Output "`$TargetTenantId: $TargetTenantId"             | Tee-Object -FileP
 
 # Prepare target control plane operations
 Write-Output "Logging into target tenant..." | Tee-Object -FilePath $LogFile -Append | Write-Host
-Login-Az -TenantId ([ref]$TargetTenantId) -LogFile $logFile -SkipAzCopy
+Login-Az -TenantId ([ref]$TargetTenantId) -LogFile $logFile
 
 # Create / update target storage account
 & (Join-Path $PSScriptRoot create_storage_account.ps1) -Name $TargetName `
