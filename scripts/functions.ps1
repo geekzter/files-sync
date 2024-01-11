@@ -282,7 +282,6 @@ function Get-StorageAccount (
 
 function Login-Az (
     [parameter(Mandatory=$false)][ref]$TenantId=$env:AZCOPY_TENANT_ID,
-    [parameter(Mandatory=$false)][switch]$SkipAzCopy,
     [parameter(Mandatory=$false)][string]$LogFile
 ) {
 
@@ -316,16 +315,7 @@ function Login-Az (
         }
     }
 
-    $SkipAzCopy = ($SkipAzCopy -or (Get-Item env:AZCOPY_AUTO_LOGIN_TYPE -ErrorAction SilentlyContinue))
-    if (!$SkipAzCopy) {
-        # There's no way to check whether we have a session, always (re-)authenticate
-        Start-Process "https://microsoft.com/devicelogin"
-        if ($TenantId.Value -and ($TenantId.Value -ne [guid]::Empty.ToString())) {
-            azcopy login --tenant-id $TenantId.Value
-        } else {
-            azcopy login
-        }
-    }
+    $env:AZCOPY_AUTO_LOGIN_TYPE ??= "AZCLI"
 }
 
 function Sync-AzureToAzure (

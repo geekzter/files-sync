@@ -44,7 +44,7 @@ if (!$TenantId) {
     Write-Output "$($PSStyle.Formatting.Error)Azure Active Directory Tenant ID not set, which is required for Azure Resource Graph access. Script cannot continue$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
-Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
+Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile
 
 $storageAccount = Get-StorageAccount $storageAccountName
 if (!$storageAccount) {

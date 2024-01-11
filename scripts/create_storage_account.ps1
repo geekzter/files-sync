@@ -26,7 +26,7 @@ Write-Debug $MyInvocation.line
 $logFile = Create-LogFile
 
 Validate-AzCli $logFile
-Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile -SkipAzCopy
+Login-Az -TenantId ([ref]$TenantID) -LogFile $logFile
 
 $principal = (Get-LoggedInPrincipal)
 $signedInObjectId = $principal.id
