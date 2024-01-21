@@ -29,6 +29,7 @@ on:
         default: true
 
 env:
+  AZCOPY_AUTO_LOGIN_TYPE: AZLI
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
