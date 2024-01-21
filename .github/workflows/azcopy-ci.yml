@@ -44,7 +44,7 @@ jobs:
     defaults:
       run:
         working-directory: scripts
-    runs-on: mac-latest
+    runs-on: macos-latest
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
