@@ -42,7 +42,7 @@ function Open-Firewall (
     $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
     Write-Debug "Public IP address is $ipAddress"
     Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
-    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
+    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow'] " -o tsv) {
         Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
     } else {
         az storage account network-rule add --account-name $StorageAccountName `
@@ -530,8 +530,8 @@ function Validate-AzCli (
         Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
-    if (!(az extension list --query "[?name=='storage-preview'].version" -o tsv)) {
+    if (!(az extension list --query "[?name=='storage-preview'].version " -o tsv)) {
         Write-Host "Adding Azure CLI extension 'storage-preview'..."
-        az extension add -n storage-preview -y #--allow-preview true
+        az extension add -n storage-preview -y --allow-preview true
     }
 }

@@ -26,12 +26,12 @@ on:
         description: 'Use SAS'
         required: false
         type: boolean
-        default: true
+        default: false
       runnerImage:
         type: choice
         required: true
         description: 'Runner image'
-        default: ubuntu-latest
+        default: windows-latest
         options: 
         - macos-latest
         - ubuntu-latest

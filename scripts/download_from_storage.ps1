@@ -36,9 +36,9 @@ if (!(Get-Command az -ErrorAction SilentlyContinue)) {
     Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
     exit
 }
-if (!(az extension list --query "[?name=='storage-preview'].version" -o tsv)) {
+if (!(az extension list --query "[?name=='storage-preview'].version " -o tsv)) {
     Write-Host "Adding Azure CLI extension 'storage-preview'..."
-    az extension add -n storage-preview -y #--allow-preview true
+    az extension add -n storage-preview -y --allow-preview true
 }
 if (!$TenantId) {
     # With Tenant ID we can retrieve other data with resource graph, without it we're toast
