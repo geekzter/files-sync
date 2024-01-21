@@ -53,7 +53,7 @@ jobs:
     defaults:
       run:
         working-directory: scripts
-    runs-on: ${{ github.event.inputs.runnerImage }}
+    runs-on: ${{ github.event.inputs.runnerImage || 'windows-latest' }}
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
