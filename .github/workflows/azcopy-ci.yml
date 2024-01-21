@@ -152,8 +152,7 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile `
-                               -UseSasToken:$${{ inputs.destroy }}
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:$${{ inputs.destroy }}
       shell: pwsh
 
     - name: Clone Storage Account
@@ -190,7 +189,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
                                     -Destination $downloadDirectory `
-                                    -UseSasToken:$${{ inputs.destroy }} # 'azcopy copy' does not support AZCOPY_AUTO_LOGIN_TYPE=AZCLI (yet)
+                                    -UseSasToken:$${{ inputs.destroy }}
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
