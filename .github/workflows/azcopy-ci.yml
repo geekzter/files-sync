@@ -16,13 +16,17 @@ on:
   schedule:
   - cron:  '0 3 * * *'
   workflow_dispatch:
-    # inputs:
-    #   destroy:
-    #     description: 'Destroy Infrastucture'
-    #     required: false
-    #     type: boolean
-    #     default: true
-
+    inputs:
+      destroy:
+        description: 'Destroy Infrastructure'
+        required: false
+        type: boolean
+        default: true
+      useSAS:
+        description: 'Use SAS'
+        required: false
+        type: boolean
+        default: false
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -149,7 +153,7 @@ jobs:
         Get-Content $jobSettingsFile | Write-Debug
 
         ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile `
-                               -UseSasToken
+                               -UseSasToken:$${{ inputs.destroy }}
       shell: pwsh
 
     - name: Clone Storage Account
@@ -164,7 +168,7 @@ jobs:
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
                                     -SkipResourceLock `
-                                    -UseSasToken
+                                    -UseSasToken:$${{ inputs.destroy }}
       shell: pwsh
 
     - name: Download with AzCopy
@@ -186,7 +190,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
                                     -Destination $downloadDirectory `
-                                    -UseSasToken # 'azcopy copy' does not support AZCOPY_AUTO_LOGIN_TYPE=AZCLI (yet)
+                                    -UseSasToken:$${{ inputs.destroy }} # 'azcopy copy' does not support AZCOPY_AUTO_LOGIN_TYPE=AZCLI (yet)
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
@@ -258,7 +262,7 @@ jobs:
       shell: pwsh
 
     - name: Clean Up
-      if: ${{ always() }}
+      if: ${{ inputs.destroy }} 
       run: |
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
