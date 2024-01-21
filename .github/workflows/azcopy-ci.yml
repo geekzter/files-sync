@@ -16,6 +16,13 @@ on:
   schedule:
   - cron:  '0 3 * * *'
   workflow_dispatch:
+    # inputs:
+    #   destroy:
+    #     description: 'Destroy Infrastucture'
+    #     required: false
+    #     type: boolean
+    #     default: true
+
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -91,7 +98,8 @@ jobs:
                                      -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                      -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                      -SkipResourceLock `
-                                     -SubscriptionId ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                                     -SubscriptionId ${{ secrets.AZURE_SUBSCRIPTION_ID }} `
+                                     -UseSasToken
       shell: pwsh
 
     - name: Prepare upload
@@ -141,7 +149,8 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile `
+                               -UseSasToken
       shell: pwsh
 
     - name: Clone Storage Account
@@ -155,7 +164,8 @@ jobs:
 
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
-                                    -SkipResourceLock
+                                    -SkipResourceLock `
+                                    -UseSasToken
       shell: pwsh
 
     - name: Download with AzCopy
