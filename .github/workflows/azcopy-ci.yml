@@ -53,7 +53,7 @@ jobs:
     defaults:
       run:
         working-directory: scripts
-    runs-on: ${{ inputs.runnerImage }}
+    runs-on: ${{ github.event.inputs.runnerImage }}
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
@@ -161,7 +161,7 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:$${{ inputs.useSAS }}
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:$${{ github.event.inputs.useSAS }}
       shell: pwsh
 
     - name: Clone Storage Account
@@ -176,7 +176,7 @@ jobs:
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
                                     -SkipResourceLock `
-                                    -UseSasToken:$${{ inputs.useSAS }}
+                                    -UseSasToken:$${{ github.event.inputs.useSAS }}
       shell: pwsh
 
     - name: Download with AzCopy
@@ -198,7 +198,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
                                     -Destination $downloadDirectory `
-                                    -UseSasToken:$${{ inputs.useSAS }}
+                                    -UseSasToken:$${{ github.event.inputs.useSAS }}
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
