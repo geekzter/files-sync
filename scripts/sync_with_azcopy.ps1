@@ -11,7 +11,8 @@ param (
     [parameter(Mandatory=$false)][switch]$AllowDelete,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
-    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7
+    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7,
+    [parameter(Mandatory=$false)][Nullable[System.Int32]]$MaxMbps
 ) 
 
 Write-Debug $MyInvocation.line
@@ -107,6 +108,7 @@ try {
                                   -Token ($UseSasToken ? $targetStorageAccount.Token : $null) `
                                   -Delete:$delete `
                                   -DryRun:$DryRun `
+                                  -$MaxMbps $MaxMbps `
                                   -LogFile $logFile
         } else {
             Write-Output "Source '$($directoryPair.source)' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning

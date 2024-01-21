@@ -9,7 +9,7 @@ param (
     [parameter(Mandatory=$true)][string]$Destination,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
-    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7
+    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7,
     [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID) 
 
 Write-Debug $MyInvocation.line

@@ -74,10 +74,10 @@ if (!$TargetSubscriptionId) {
 if (!$TargetTenantId) {
     $TargetTenantId       = $SourceTenantId
 }
-Write-Output "`$TargetLocation: $TargetLocation"             | Tee-Object -FilePath $LogFile -Append | Write-Debug
-Write-Output "`$TargetResourceGroup: $TargetResourceGroup"   | Tee-Object -FilePath $LogFile -Append | Write-Debug
-Write-Output "`$TargetSubscriptionId: $TargetSubscriptionId" | Tee-Object -FilePath $LogFile -Append | Write-Debug
-Write-Output "`$TargetTenantId: $TargetTenantId"             | Tee-Object -FilePath $LogFile -Append | Write-Debug
+Write-Output "`$TargetLocation: $TargetLocation"             | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
+Write-Output "`$TargetResourceGroup: $TargetResourceGroup"   | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
+Write-Output "`$TargetSubscriptionId: $TargetSubscriptionId" | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
+Write-Output "`$TargetTenantId: $TargetTenantId"             | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
 
 # Prepare target control plane operations
 Write-Output "Logging into target tenant..." | Tee-Object -FilePath $LogFile -Append | Write-Host
