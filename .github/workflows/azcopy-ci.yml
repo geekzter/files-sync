@@ -38,6 +38,14 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v2
 
+    - name: Use Azure CLI
+      uses: azure/login@v1
+      with:
+        # Using OpenID Connect / Workload Identity
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    
     - name: Prepare environment variables
       run: | 
         Write-Output "ACTIONS_STEP_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
