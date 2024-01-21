@@ -532,6 +532,6 @@ function Validate-AzCli (
     }
     if (!(az extension list --query "[?name=='storage-preview'].version" -o tsv)) {
         Write-Host "Adding Azure CLI extension 'storage-preview'..."
-        az extension add -n storage-preview -y --allow-preview true
+        az extension add -n storage-preview -y #--allow-preview true
     }
 }
