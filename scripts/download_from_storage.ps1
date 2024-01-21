@@ -38,7 +38,7 @@ if (!(Get-Command az -ErrorAction SilentlyContinue)) {
 }
 if (!(az extension list --query "[?name=='storage-preview'].version" -o tsv)) {
     Write-Host "Adding Azure CLI extension 'storage-preview'..."
-    az extension add -n storage-preview -y
+    az extension add -n storage-preview -y --allow-preview true
 }
 if (!$TenantId) {
     # With Tenant ID we can retrieve other data with resource graph, without it we're toast

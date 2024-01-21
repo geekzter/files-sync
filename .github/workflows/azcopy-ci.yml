@@ -26,7 +26,7 @@ on:
         description: 'Use SAS'
         required: false
         type: boolean
-        default: false
+        default: true
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
