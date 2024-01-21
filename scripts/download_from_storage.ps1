@@ -81,6 +81,7 @@ do {
     try {
         Write-Output "`n$($PSStyle.Bold)Downloading '$Source' -> '$Destination'$($PSStyle.Reset)" | Tee-Object -FilePath $logFile -Append | Write-Host -ForegroundColor Blue
         Write-Output $azcopyCommand | Tee-Object -FilePath $logFile -Append | Write-Debug
+        Write-Debug "AZCOPY_AUTO_LOGIN_TYPE: '${env:AZCOPY_AUTO_LOGIN_TYPE}'"
         Invoke-Expression $azcopyCommand
 
         # Fetch Job ID, so we can find azcopy log and append it to the script log file
