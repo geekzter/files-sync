@@ -328,7 +328,10 @@ function Sync-AzureToAzure (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
-    $azcopyCommand = "azcopy sync '${Source}?${SourceToken}' '${Target}?${TargetToken}' $azcopyArgs"
+    $azcopyCommand = "azcopy sync  "
+    $azcopyCommand += $SourceToken ? "'${Source}?${SourceToken}' " : "'$Source' "
+    $azcopyCommand += $TargetToken ? "'${Target}?${TargetToken}' " : "'$Target' "
+    $azcopyCommand += $azcopyArgs
 
     Execute-AzCopy -AzCopyCommand $azcopyCommand `
                    -Source $Source `
@@ -358,11 +361,7 @@ function Sync-DirectoryToAzure (
     }
 
     $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
-    if ($Token) {
-        $azCopyTarget = "${Target}?${Token}"
-    } else {
-        $azCopyTarget = $Target
-    }
+    $azCopyTarget = $Token ? "${Target}?${Token}" : $Target
     $Source = (Resolve-Path $Source).Path
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
 

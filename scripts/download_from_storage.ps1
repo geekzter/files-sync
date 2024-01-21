@@ -8,7 +8,8 @@ param (
     [parameter(Mandatory=$true)][string]$Source,
     [parameter(Mandatory=$true)][string]$Destination,
     [parameter(Mandatory=$false)][switch]$DryRun,
-    [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7,
+    [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
+    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7
     [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID) 
 
 Write-Debug $MyInvocation.line
@@ -51,10 +52,12 @@ if (!$storageAccount) {
     Write-Output "Unable to retrieve resource id/group and subscription for '$storageAccountName' using Azure resource graph. Make sure you're logged into the right Azure Active Directory tenant (current: $SourceTenantId). Exiting" | Tee-Object -FilePath $LogFile -Append | Write-Error -Category ResourceUnavailable
     exit
 }
-$storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
-                                       -ResourceGroupName $storageAccount.resourceGroup `
-                                       -SubscriptionId $storageAccount.subscriptionId `
-                                       -SasTokenValidityDays $SasTokenValidityDays
+if ($UseSasToken) {
+    $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
+                                           -ResourceGroupName $storageAccount.resourceGroup `
+                                           -SubscriptionId $storageAccount.subscriptionId `
+                                           -SasTokenValidityDays $SasTokenValidityDays
+}
 
 # Add firewall rule on storage account
 Open-Firewall -StorageAccountName $storageAccountName `
@@ -67,7 +70,7 @@ if ($DryRun) {
     $azcopyArgs += " --dry-run"
 }
 
-$azCopySource = "${Source}?${storageAccountToken}"
+$azCopySource = $UseSasToken ? "${Source}?${storageAccountToken}" : "${Source}"
 $Destination = (Resolve-Path $Destination).Path
 $previousJobId = Get-AzCopyLatestJobId # Get latest Job ID, so we can detect whether a job was created later
 $azcopyCommand = "azcopy copy '$azCopySource' '$Destination' $azcopyArgs"

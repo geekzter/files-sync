@@ -48,7 +48,7 @@ jobs:
 
     - name: Prepare environment variables
       run: | 
-        Write-Output "FILES_SYNC_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
+        Write-Output "ACTIONS_STEP_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT_CLONE=filesync2ci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
@@ -80,7 +80,7 @@ jobs:
 
     - name: Create Storage Account
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -95,7 +95,7 @@ jobs:
 
     - name: Prepare upload
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -106,7 +106,7 @@ jobs:
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
         Get-ChildItem $env:GITHUB_WORKSPACE -Recurse | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           Write-Host "Files to be uploaded:"
           Get-ChildItem $uploadDirectory -Recurse -Force | % {
             Write-Host $_.FullName
@@ -118,7 +118,7 @@ jobs:
 
     - name: Sync with AzCopy
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -143,7 +143,7 @@ jobs:
 
     - name: Clone Storage Account
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -156,7 +156,7 @@ jobs:
 
     - name: Download with AzCopy
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -178,7 +178,7 @@ jobs:
 
     - name: Compare download with upload
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
@@ -192,7 +192,7 @@ jobs:
           throw "Download was empty"
         }
 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           Write-Host "Files downloaded:"
           $download | % {
             Write-Host $_.FullName
@@ -244,7 +244,7 @@ jobs:
     - name: Clean Up
       if: ${{ always() }}
       run: |
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
