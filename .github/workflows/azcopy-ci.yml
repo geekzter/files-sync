@@ -27,6 +27,15 @@ on:
         required: false
         type: boolean
         default: true
+      runnerImage:
+        type: choice
+        required: true
+        description: 'Runner image'
+        default: ubuntu-latest
+        options: 
+        - macos-latest
+        - ubuntu-latest
+        - windows-latest
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -44,7 +53,7 @@ jobs:
     defaults:
       run:
         working-directory: scripts
-    runs-on: macos-latest
+    runs-on: ${{ inputs.runnerImage }}
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
