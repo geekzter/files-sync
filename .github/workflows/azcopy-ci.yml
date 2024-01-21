@@ -42,6 +42,7 @@ env:
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
   FILES_SYNC_STORAGE_CONTAINER: artifacts
+  FILES_SYNC_USE_SAS: ${{ inputs.useSAS || 'false' }}
 
 permissions:
   id-token: write
@@ -53,7 +54,7 @@ jobs:
     defaults:
       run:
         working-directory: scripts
-    runs-on: ${{ github.event.inputs.runnerImage || 'windows-latest' }}
+    runs-on: ${{ inputs.runnerImage || 'windows-latest' }}
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
@@ -161,7 +162,7 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:$${{ github.event.inputs.useSAS }}
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:$${env:FILES_SYNC_USE_SAS}
       shell: pwsh
 
     - name: Clone Storage Account
@@ -176,7 +177,7 @@ jobs:
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
                                     -SkipResourceLock `
-                                    -UseSasToken:$${{ github.event.inputs.useSAS }}
+                                    -UseSasToken:$${env:FILES_SYNC_USE_SAS}
       shell: pwsh
 
     - name: Download with AzCopy
@@ -198,7 +199,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
                                     -Destination $downloadDirectory `
-                                    -UseSasToken:$${{ github.event.inputs.useSAS }}
+                                    -UseSasToken:$${env:FILES_SYNC_USE_SAS}
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
@@ -270,7 +271,7 @@ jobs:
       shell: pwsh
 
     - name: Clean Up
-      if: ${{ always() && inputs.destroy }} 
+      if: ${{ always() || inputs.destroy }} 
       run: |
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
