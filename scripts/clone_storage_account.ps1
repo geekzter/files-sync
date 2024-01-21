@@ -16,7 +16,8 @@ param (
     [parameter(Mandatory=$false)][string]$TargetTenantId,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
-    [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7,
+    [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
+    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7,
     [parameter(Mandatory=$false)][switch]$SkipResourceLock
 ) 
 
@@ -52,10 +53,12 @@ az storage container list --account-name $SourceName `
 
 # Prepare source data plane operations
 $sourceBlobBaseUrl = $(az storage account show -n $SourceName -g $sourceStorageAccount.resourceGroup --subscription $sourceStorageAccount.subscriptionId --query "primaryEndpoints.blob" -o tsv)
-$sourceAccountToken = Create-SasToken -StorageAccountName $SourceName `
-                                      -ResourceGroupName $sourceStorageAccount.resourceGroup `
-                                      -SubscriptionId $sourceStorageAccount.subscriptionId `
-                                      -SasTokenValidityDays $SasTokenValidityDays
+if ($UseSasToken) {
+    $sourceAccountToken = Create-SasToken -StorageAccountName $SourceName `
+                                          -ResourceGroupName $sourceStorageAccount.resourceGroup `
+                                          -SubscriptionId $sourceStorageAccount.subscriptionId `
+                                          -SasTokenValidityDays $SasTokenValidityDays
+}
 
 # Fill in missing target parameters with source values as default
 # ??= doesn't work for parameters in pwsh 7.2
@@ -71,10 +74,10 @@ if (!$TargetSubscriptionId) {
 if (!$TargetTenantId) {
     $TargetTenantId       = $SourceTenantId
 }
-Write-Output "`$TargetLocation: $TargetLocation"             | Tee-Object -FilePath $LogFile -Append | Write-Debug
-Write-Output "`$TargetResourceGroup: $TargetResourceGroup"   | Tee-Object -FilePath $LogFile -Append | Write-Debug
-Write-Output "`$TargetSubscriptionId: $TargetSubscriptionId" | Tee-Object -FilePath $LogFile -Append | Write-Debug
-Write-Output "`$TargetTenantId: $TargetTenantId"             | Tee-Object -FilePath $LogFile -Append | Write-Debug
+Write-Output "`$TargetLocation: $TargetLocation"             | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
+Write-Output "`$TargetResourceGroup: $TargetResourceGroup"   | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
+Write-Output "`$TargetSubscriptionId: $TargetSubscriptionId" | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
+Write-Output "`$TargetTenantId: $TargetTenantId"             | Tee-Object -FilePath $LogFile -Append | Out-String | Write-Debug
 
 # Prepare target control plane operations
 Write-Output "Logging into target tenant..." | Tee-Object -FilePath $LogFile -Append | Write-Host

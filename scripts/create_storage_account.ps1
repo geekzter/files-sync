@@ -47,9 +47,10 @@ Write-Host "Created/updated resource group $resourceGroupId"
 $role = "Storage Blob Data Contributor"
 Write-Verbose "Assigning role '$role' on '$resourceGroupId' to '$signedInObjectId'..."
 az role assignment create --role $role `
+                          --scope $resourceGroupId `
                           --assignee-object-id $signedInObjectId `
                           --assignee-principal-type $(az account show --query user.type -o tsv) `
-                          -g $ResourceGroup --subscription $SubscriptionId `
+                          --subscription $SubscriptionId `
                           -o json | Write-Debug
 
 # Create Service Principal

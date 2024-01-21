@@ -10,7 +10,9 @@ param (
     [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_AZCOPY_SETTINGS_FILE ?? (Join-Path $PSScriptRoot azcopy-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
     [parameter(Mandatory=$false)][switch]$DryRun,
-    [parameter(Mandatory=$false)][int]$SasTokenValidityDays=7
+    [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
+    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7,
+    [parameter(Mandatory=$false)][int]$MaxMbps=0
 ) 
 
 Write-Debug $MyInvocation.line
@@ -63,14 +65,16 @@ try {
                       -SubscriptionId $storageAccount.subscriptionId
 
         # Generate SAS
-        $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
-        $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
-                                               -ResourceGroupName $storageAccount.resourceGroup `
-                                               -SubscriptionId $storageAccount.subscriptionId `
-                                               -SasTokenValidityDays $SasTokenValidityDays `
-                                               -Write `
-                                               -Delete:$delete
-        $storageAccount | Add-Member -NotePropertyName Token -NotePropertyValue $storageAccountToken
+        if ($UseSasToken) {
+            $delete = ($AllowDelete -and ($directoryPair.delete -eq $true))
+            $storageAccountToken = Create-SasToken -StorageAccountName $storageAccountName `
+                                                   -ResourceGroupName $storageAccount.resourceGroup `
+                                                   -SubscriptionId $storageAccount.subscriptionId `
+                                                   -SasTokenValidityDays $SasTokenValidityDays `
+                                                   -Write `
+                                                   -Delete:$delete
+            $storageAccount | Add-Member -NotePropertyName Token -NotePropertyValue $storageAccountToken    
+        }
         $storageAccounts.add($storageAccountName,$storageAccount) | Out-Null
     }
 
@@ -91,9 +95,9 @@ try {
             $sourceStorageAccountName = $matches["name"]
             $sourceStorageAccount = $storageAccounts[$sourceStorageAccountName]
             Sync-AzureToAzure -Source $directoryPair.source `
-                              -SourceToken $sourceStorageAccount.Token `
+                              -SourceToken ($UseSasToken ? $sourceStorageAccount.Token : $null) `
                               -Target $directoryPair.target `
-                              -TargetToken $targetStorageAccount.Token `
+                              -TargetToken ($UseSasToken ? $targetStorageAccount.Token : $null) `
                               -Delete:$delete `
                               -DryRun:$DryRun `
                               -LogFile $logFile
@@ -101,9 +105,10 @@ try {
             # Source is a directory
             Sync-DirectoryToAzure -Source $directoryPair.source `
                                   -Target $directoryPair.target `
-                                  -Token $targetStorageAccount.Token `
+                                  -Token ($UseSasToken ? $targetStorageAccount.Token : $null) `
                                   -Delete:$delete `
                                   -DryRun:$DryRun `
+                                  -MaxMbps $MaxMbps `
                                   -LogFile $logFile
         } else {
             Write-Output "Source '$($directoryPair.source)' does not exist, skipping" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Warning

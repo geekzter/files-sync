@@ -16,12 +16,33 @@ on:
   schedule:
   - cron:  '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      destroy:
+        description: 'Destroy Infrastructure'
+        required: false
+        type: boolean
+        default: true
+      useSAS:
+        description: 'Use SAS'
+        required: false
+        type: boolean
+        default: false
+      runnerImage:
+        type: choice
+        required: true
+        description: 'Runner image'
+        default: windows-latest
+        options: 
+        - macos-latest
+        - ubuntu-latest
+        - windows-latest
 
 env:
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
   FILES_SYNC_STORAGE_CONTAINER: artifacts
+  FILES_SYNC_USE_SAS: $${{ inputs.useSAS || 'false' }}
 
 permissions:
   id-token: write
@@ -33,7 +54,7 @@ jobs:
     defaults:
       run:
         working-directory: scripts
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runnerImage || 'windows-latest' }}
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
@@ -45,10 +66,10 @@ jobs:
         client-id: ${{ secrets.AZURE_CLIENT_ID }}
         tenant-id: ${{ secrets.AZURE_TENANT_ID }}
         subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
+    
     - name: Prepare environment variables
       run: | 
-        Write-Output "FILES_SYNC_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
+        Write-Output "ACTIONS_STEP_DEBUG=${{ secrets.ACTIONS_RUNNER_DEBUG }}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT_CLONE=filesync2ci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
@@ -80,10 +101,11 @@ jobs:
 
     - name: Create Storage Account
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         ./create_storage_account.ps1 -Container $env:FILES_SYNC_STORAGE_CONTAINER `
@@ -95,10 +117,11 @@ jobs:
 
     - name: Prepare upload
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         # Create upload directory
@@ -106,7 +129,7 @@ jobs:
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
         Get-ChildItem $env:GITHUB_WORKSPACE -Recurse | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           Write-Host "Files to be uploaded:"
           Get-ChildItem $uploadDirectory -Recurse -Force | % {
             Write-Host $_.FullName
@@ -118,10 +141,11 @@ jobs:
 
     - name: Sync with AzCopy
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         # Wait for resource graph to populate
@@ -138,28 +162,31 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:([bool]${env:FILES_SYNC_USE_SAS})
       shell: pwsh
 
     - name: Clone Storage Account
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
-                                    -SkipResourceLock
+                                    -SkipResourceLock `
+                                    -UseSasToken:([bool]${env:FILES_SYNC_USE_SAS})
       shell: pwsh
 
     - name: Download with AzCopy
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         # Wait for resource graph to populate
@@ -171,17 +198,19 @@ jobs:
         $downloadDirectoryStorageContainer = (Join-Path $downloadDirectory $env:FILES_SYNC_STORAGE_CONTAINER)
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
-                                    -Destination $downloadDirectory
+                                    -Destination $downloadDirectory `
+                                    -UseSasToken:([bool]${env:FILES_SYNC_USE_SAS})
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Compare download with upload
       run: | 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
@@ -192,7 +221,7 @@ jobs:
           throw "Download was empty"
         }
 
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           Write-Host "Files downloaded:"
           $download | % {
             Write-Host $_.FullName
@@ -242,12 +271,13 @@ jobs:
       shell: pwsh
 
     - name: Clean Up
-      if: ${{ always() }}
+      if: ${{ always() || inputs.destroy }} 
       run: |
-        if ($env:FILES_SYNC_DEBUG -ieq "true") {
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         $ErrorActionPreference = "Stop"

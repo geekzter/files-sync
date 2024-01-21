@@ -42,7 +42,7 @@ function Open-Firewall (
     $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
     Write-Debug "Public IP address is $ipAddress"
     Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
-    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow']" -o tsv) {
+    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow'] " -o tsv) {
         Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
     } else {
         az storage account network-rule add --account-name $StorageAccountName `
@@ -149,6 +149,7 @@ function Execute-AzCopy (
 
         try {
             Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
+            Write-Debug "AZCOPY_AUTO_LOGIN_TYPE: '${env:AZCOPY_AUTO_LOGIN_TYPE}'"
             Write-Output $AzCopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
             try {
                 # Use try / finally, so we can gracefully intercept Ctrl-C
@@ -315,7 +316,8 @@ function Login-Az (
         }
     }
 
-    $env:AZCOPY_AUTO_LOGIN_TYPE ??= "AZCLI"
+    $env:AZCOPY_AUTO_LOGIN_TYPE ??= 'AZCLI'
+    Write-Debug "AZCOPY_AUTO_LOGIN_TYPE: '${env:AZCOPY_AUTO_LOGIN_TYPE}'"
 }
 
 function Sync-AzureToAzure (
@@ -328,7 +330,10 @@ function Sync-AzureToAzure (
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
-    $azcopyCommand = "azcopy sync '${Source}?${SourceToken}' '${Target}?${TargetToken}' $azcopyArgs"
+    $azcopyCommand = "azcopy sync  "
+    $azcopyCommand += $SourceToken ? "'${Source}?${SourceToken}' " : "'$Source' "
+    $azcopyCommand += $TargetToken ? "'${Target}?${TargetToken}' " : "'$Target' "
+    $azcopyCommand += $azcopyArgs
 
     Execute-AzCopy -AzCopyCommand $azcopyCommand `
                    -Source $Source `
@@ -342,6 +347,7 @@ function Sync-DirectoryToAzure (
     [parameter(Mandatory=$false)][string]$Token,   
     [parameter(Mandatory=$false)][switch]$Delete,
     [parameter(Mandatory=$false)][switch]$DryRun,
+    [parameter(Mandatory=$false)][int]$MaxMbps,
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
@@ -358,13 +364,12 @@ function Sync-DirectoryToAzure (
     }
 
     $azcopyArgs = Build-AzCopyArgs -Delete:$Delete -DryRun:$DryRun
-    if ($Token) {
-        $azCopyTarget = "${Target}?${Token}"
-    } else {
-        $azCopyTarget = $Target
-    }
+    $azCopyTarget = $Token ? "${Target}?${Token}" : $Target
     $Source = (Resolve-Path $Source).Path
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
+    if ($MaxMbps -gt 0) {
+        $azcopyCommand += " --cap-mbps $MaxMbps"
+    }
 
     Execute-AzCopy -AzCopyCommand $azcopyCommand `
                    -Source $Source `
@@ -525,8 +530,8 @@ function Validate-AzCli (
         Write-Output "$($PSStyle.Formatting.Error)Azure CLI not found, exiting$($PSStyle.Reset)" | Tee-Object -FilePath $LogFile -Append | Write-Warning
         exit
     }
-    if (!(az extension list --query "[?name=='storage-preview'].version" -o tsv)) {
+    if (!(az extension list --query "[?name=='storage-preview'].version " -o tsv)) {
         Write-Host "Adding Azure CLI extension 'storage-preview'..."
-        az extension add -n storage-preview -y
+        az extension add -n storage-preview -y --allow-preview true
     }
 }
