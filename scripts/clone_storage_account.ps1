@@ -17,7 +17,7 @@ param (
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false)][int]$RetentionDays=30,
     [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
-    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7
+    [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7,
     [parameter(Mandatory=$false)][switch]$SkipResourceLock
 ) 
 
