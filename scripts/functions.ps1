@@ -316,7 +316,7 @@ function Login-Az (
         }
     }
 
-    $env:AZCOPY_AUTO_LOGIN_TYPE ??= "AZCLI"
+    $env:AZCOPY_AUTO_LOGIN_TYPE ??= 'AZCLI'
     Write-Debug "AZCOPY_AUTO_LOGIN_TYPE: '${env:AZCOPY_AUTO_LOGIN_TYPE}'"
 }
 
