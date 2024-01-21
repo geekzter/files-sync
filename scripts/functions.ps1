@@ -345,7 +345,7 @@ function Sync-DirectoryToAzure (
     [parameter(Mandatory=$false)][string]$Token,   
     [parameter(Mandatory=$false)][switch]$Delete,
     [parameter(Mandatory=$false)][switch]$DryRun,
-    [parameter(Mandatory=$false)][Nullable[System.Int32]]$MaxMbps,
+    [parameter(Mandatory=$false)][int]$MaxMbps,
     [parameter(Mandatory=$true)][string]$LogFile
 ) {
     if (!(Get-Command azcopy -ErrorAction SilentlyContinue)) {
@@ -365,9 +365,9 @@ function Sync-DirectoryToAzure (
     $azCopyTarget = $Token ? "${Target}?${Token}" : $Target
     $Source = (Resolve-Path $Source).Path
     $azcopyCommand = "azcopy sync '$Source' '$azCopyTarget' $azcopyArgs"
-    # if ($MaxMbps) {
-    #     $azcopyCommand += " --cap-mbps $MaxMbps"
-    # }
+    if ($MaxMbps -gt 0) {
+        $azcopyCommand += " --cap-mbps $MaxMbps"
+    }
 
     Execute-AzCopy -AzCopyCommand $azcopyCommand `
                    -Source $Source `
