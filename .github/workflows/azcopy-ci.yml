@@ -84,6 +84,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         ./create_storage_account.ps1 -Container $env:FILES_SYNC_STORAGE_CONTAINER `
@@ -99,6 +100,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         # Create upload directory
@@ -122,6 +124,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         # Wait for resource graph to populate
@@ -147,6 +150,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
@@ -160,6 +164,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         # Wait for resource graph to populate
@@ -182,6 +187,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         $uploadDirectory = $env:FILES_SYNC_UPLOAD_DIRECTORY
@@ -248,6 +254,7 @@ jobs:
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
         }
 
         $ErrorActionPreference = "Stop"
