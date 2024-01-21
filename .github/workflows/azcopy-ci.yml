@@ -98,8 +98,7 @@ jobs:
                                      -Name $env:FILES_SYNC_STORAGE_ACCOUNT `
                                      -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                      -SkipResourceLock `
-                                     -SubscriptionId ${{ secrets.AZURE_SUBSCRIPTION_ID }} `
-                                     -UseSasToken
+                                     -SubscriptionId ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       shell: pwsh
 
     - name: Prepare upload
