@@ -42,7 +42,7 @@ env:
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
   FILES_SYNC_STORAGE_CONTAINER: artifacts
-  FILES_SYNC_USE_SAS: ${{ inputs.useSAS || 'false' }}
+  FILES_SYNC_USE_SAS: $${{ inputs.useSAS || 'false' }}
 
 permissions:
   id-token: write
@@ -162,7 +162,7 @@ jobs:
         $settings | ConvertTo-Json | Out-File $jobSettingsFile
         Get-Content $jobSettingsFile | Write-Debug
 
-        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:$${env:FILES_SYNC_USE_SAS}
+        ./sync_with_azcopy.ps1 -SettingsFile $jobSettingsFile -UseSasToken:([bool]${env:FILES_SYNC_USE_SAS})
       shell: pwsh
 
     - name: Clone Storage Account
@@ -177,7 +177,7 @@ jobs:
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
                                     -SkipResourceLock `
-                                    -UseSasToken:$${env:FILES_SYNC_USE_SAS}
+                                    -UseSasToken:([bool]${env:FILES_SYNC_USE_SAS})
       shell: pwsh
 
     - name: Download with AzCopy
@@ -199,7 +199,7 @@ jobs:
         New-Item $downloadDirectory -ItemType "directory" -Force | Write-Debug
         ./download_from_storage.ps1 -Source "https://${env:FILES_SYNC_STORAGE_ACCOUNT_CLONE}.blob.core.windows.net/${env:FILES_SYNC_STORAGE_CONTAINER}" `
                                     -Destination $downloadDirectory `
-                                    -UseSasToken:$${env:FILES_SYNC_USE_SAS}
+                                    -UseSasToken:([bool]${env:FILES_SYNC_USE_SAS})
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY=${downloadDirectory}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_DOWNLOAD_DIRECTORY_STORAGE_CONTAINER=${downloadDirectoryStorageContainer}" >> $env:GITHUB_ENV
       shell: pwsh
