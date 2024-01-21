@@ -22,11 +22,6 @@ on:
         required: false
         type: boolean
         default: true
-      firewallWaitSeconds:
-        description: 'Seconds to wait for firewall rules to update'
-        required: false
-        type: number
-        default: 45
       useSAS:
         description: 'Use SAS'
         required: false
@@ -153,7 +148,7 @@ jobs:
         }
 
         # Wait for resource graph to populate
-        $waitSeconds = ${{ inputs.firewallWaitSeconds }}
+        $waitSeconds = 45
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
@@ -194,7 +189,7 @@ jobs:
         }
 
         # Wait for resource graph to populate
-        $$waitSeconds = ${{ inputs.firewallWaitSeconds }}
+        $waitSeconds = 45
         Write-Host "Waiting $waitSeconds seconds for Azure resource graph to reflect..."
         Start-Sleep -Seconds $waitSeconds
 
