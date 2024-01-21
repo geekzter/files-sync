@@ -150,6 +150,7 @@ function Execute-AzCopy (
         try {
             Write-Output "`n$($PSStyle.Bold)Starting$($PSStyle.Reset) '$Source' -> '$Target'" | Tee-Object -FilePath $LogFile -Append | Write-Host
             Write-Output $AzCopyCommand | Tee-Object -FilePath $LogFile -Append | Write-Debug
+            Write-Debug "AZCOPY_AUTO_LOGIN_TYPE: '${env:AZCOPY_AUTO_LOGIN_TYPE}'"
             try {
                 # Use try / finally, so we can gracefully intercept Ctrl-C
                 Invoke-Expression $AzCopyCommand
