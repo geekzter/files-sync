@@ -44,7 +44,7 @@ az group create -n $Name -g $ResourceGroup -l $Location --subscription $Subscrip
 Write-Host "Created/updated resource group $resourceGroupId"
 
 # Assign ourselves data plane access
-$role = "Storage Blob Data Contributor"
+$role = "Storage Blob Data Owner"
 Write-Verbose "Assigning role '$role' on '$resourceGroupId' to '$signedInObjectId'..."
 az role assignment create --role $role `
                           --scope $resourceGroupId `
