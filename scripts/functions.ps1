@@ -221,7 +221,7 @@ function Get-AzCopyLatestJobId () {
     azcopy jobs list --output-type json | Set-Variable jobsList
     Write-Debug "jobsList: ${jobsList}"
     $jobsList | ConvertFrom-Json `
-              | Where-Object -Property MessageContent -Match '^{.*}$' `
+              | Where-Object -Property MessageType -EQ "EndOfJob" `
               | Select-Object -ExpandProperty MessageContent `
               | Set-Variable messageContent
     Write-Debug "messageContent: ${messageContent}"
@@ -238,7 +238,9 @@ function Get-AzCopyJobStatus (
 ) {
     # Determine job status in a way that does not generare errors in case there is none
     azcopy jobs show $jobId --output-type json | ConvertFrom-Json `
+                                               | Where-Object -Property MessageType -EQ "EndOfJob" `
                                                | Select-Object -ExpandProperty MessageContent `
+                                               | Set-Variable messageContent
                                                | ConvertFrom-Json `
                                                | Select-Object -ExpandProperty JobStatus
 }
