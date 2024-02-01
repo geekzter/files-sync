@@ -223,11 +223,13 @@ function Get-AzCopyLatestJobId () {
     $jobsList | ConvertFrom-Json `
               | Where-Object -Property MessageContent -Match '^{.*}$' `
               | Select-Object -ExpandProperty MessageContent `
-              | ConvertFrom-Json -AsHashtable `
-              | Select-Object -ExpandProperty JobIDDetails `
-              | Select-Object -First 1 `
-              | Select-Object -ExpandProperty JobId `
-              | Set-Variable jobId
+              | Set-Variable messageContent
+    Write-Debug "messageContent: ${messageContent}"
+    $messageContent | ConvertFrom-Json -AsHashtable `
+                    | Select-Object -ExpandProperty JobIDDetails `
+                    | Select-Object -First 1 `
+                    | Select-Object -ExpandProperty JobId `
+                    | Set-Variable jobId
     return $jobId
 }
 
