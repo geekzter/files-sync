@@ -218,13 +218,15 @@ function Execute-AzCopy (
 # AzCopy
 function Get-AzCopyLatestJobId () {
     # Fetch Job ID in a way that does not generare errors in case there is none
-    azcopy jobs list --output-type json | ConvertFrom-Json `
-                                        | Select-Object -ExpandProperty MessageContent `
-                                        | ConvertFrom-Json -AsHashtable `
-                                        | Select-Object -ExpandProperty JobIDDetails `
-                                        | Select-Object -First 1 `
-                                        | Select-Object -ExpandProperty JobId `
-                                        | Set-Variable jobId
+    azcopy jobs list --output-type json | Set-Variable jobsList
+    Write-Debug "jobsList: ${jobsList}"
+    $jobsList | ConvertFrom-Json `
+              | Select-Object -ExpandProperty MessageContent `
+              | ConvertFrom-Json -AsHashtable `
+              | Select-Object -ExpandProperty JobIDDetails `
+              | Select-Object -First 1 `
+              | Select-Object -ExpandProperty JobId `
+              | Set-Variable jobId
     return $jobId
 }
 
