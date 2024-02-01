@@ -219,6 +219,7 @@ function Execute-AzCopy (
 function Get-AzCopyLatestJobId () {
     # Fetch Job ID in a way that does not generare errors in case there is none
     azcopy jobs list --output-type json | ConvertFrom-Json `
+                                        | Where-Object -Property MessageType -EQ "EndOfJob" `
                                         | Select-Object -ExpandProperty MessageContent `
                                         | ConvertFrom-Json -AsHashtable `
                                         | Select-Object -ExpandProperty JobIDDetails `
@@ -233,6 +234,7 @@ function Get-AzCopyJobStatus (
 ) {
     # Determine job status in a way that does not generare errors in case there is none
     azcopy jobs show $jobId --output-type json | ConvertFrom-Json `
+                                               | Where-Object -Property MessageType -EQ "EndOfJob" `
                                                | Select-Object -ExpandProperty MessageContent `
                                                | ConvertFrom-Json `
                                                | Select-Object -ExpandProperty JobStatus
