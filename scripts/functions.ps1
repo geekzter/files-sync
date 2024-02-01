@@ -221,6 +221,7 @@ function Get-AzCopyLatestJobId () {
     azcopy jobs list --output-type json | Set-Variable jobsList
     Write-Debug "jobsList: ${jobsList}"
     $jobsList | ConvertFrom-Json `
+              | Where-Object -Property MessageContent -Match '^{.*}$' `
               | Select-Object -ExpandProperty MessageContent `
               | ConvertFrom-Json -AsHashtable `
               | Select-Object -ExpandProperty JobIDDetails `
