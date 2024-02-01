@@ -218,18 +218,14 @@ function Execute-AzCopy (
 # AzCopy
 function Get-AzCopyLatestJobId () {
     # Fetch Job ID in a way that does not generare errors in case there is none
-    azcopy jobs list --output-type json | Set-Variable jobsList
-    Write-Debug "jobsList: ${jobsList}"
-    $jobsList | ConvertFrom-Json `
-              | Where-Object -Property MessageType -EQ "EndOfJob" `
-              | Select-Object -ExpandProperty MessageContent `
-              | Set-Variable messageContent
-    Write-Debug "messageContent: ${messageContent}"
-    $messageContent | ConvertFrom-Json -AsHashtable `
-                    | Select-Object -ExpandProperty JobIDDetails `
-                    | Select-Object -First 1 `
-                    | Select-Object -ExpandProperty JobId `
-                    | Set-Variable jobId
+    azcopy jobs list --output-type json | ConvertFrom-Json `
+                                        | Where-Object -Property MessageType -EQ "EndOfJob" `
+                                        | Select-Object -ExpandProperty MessageContent `
+                                        | ConvertFrom-Json -AsHashtable `
+                                        | Select-Object -ExpandProperty JobIDDetails `
+                                        | Select-Object -First 1 `
+                                        | Select-Object -ExpandProperty JobId `
+                                        | Set-Variable jobId
     return $jobId
 }
 
@@ -240,7 +236,6 @@ function Get-AzCopyJobStatus (
     azcopy jobs show $jobId --output-type json | ConvertFrom-Json `
                                                | Where-Object -Property MessageType -EQ "EndOfJob" `
                                                | Select-Object -ExpandProperty MessageContent `
-                                               | Set-Variable messageContent
                                                | ConvertFrom-Json `
                                                | Select-Object -ExpandProperty JobStatus
 }
