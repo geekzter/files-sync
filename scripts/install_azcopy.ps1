@@ -6,7 +6,8 @@
     Installs AzCopy locally in the bin subdirectory
 #> 
 param ( 
-    [parameter(Mandatory=$False)][string]$PackageUrl
+    [parameter(Mandatory=$true,ParameterSetName="Release")][string]$ReleaseDate,
+    [parameter(Mandatory=$true,ParameterSetName="Release")][string]$ReleaseVersion
 ) 
 
 . (Join-Path $PSScriptRoot functions.ps1)
@@ -21,32 +22,45 @@ if ($azCopy) {
 }
 
 if ($IsWindows) {
-    $packageUrl = [Environment]::Is64BitProcess ? "https://aka.ms/downloadazcopy-v10-windows" : "https://aka.ms/downloadazcopy-v10-windows-32bit"
+    if ($ReleaseDate -and $ReleaseVersion) {
+        $PackageUrl = "https://azcopyvnext.azureedge.net/releases/release-${ReleaseVersion}-${ReleaseDate}/azcopy_windows_$([Environment]::Is64BitProcess ? "amd64" : "386")_${ReleaseVersion}.zip"
+    } else {
+        $PackageUrl = [Environment]::Is64BitProcess ? "https://aka.ms/downloadazcopy-v10-windows" : "https://aka.ms/downloadazcopy-v10-windows-32bit"
+    }
     $packageFile = "azcopy.zip"
     $localAzCopyFile = "azcopy.exe"
 }
 if ($IsLinux) {
-    if ($arch -in @("arm", "arm64")) {
-        $packageUrl = "https://aka.ms/downloadazcopy-v10-linux-arm64"
-    } elseif ($arch -eq "x86_64") {
-        $packageUrl = "https://aka.ms/downloadazcopy-v10-linux"
+    $arch = $(uname -m)
+    if ($ReleaseDate -and $ReleaseVersion) {
+        $PackageUrl = "https://azcopyvnext.azureedge.net/releases/release-${ReleaseVersion}-${ReleaseDate}/azcopy_linux_$(($arch -in @("arm", "arm64"))? "arm64" : "amd64")_${ReleaseVersion}.zip"
     } else {
-        Write-Warning "Unknown architecture '${arch}', defaulting to x64"
-        $packageUrl = "https://aka.ms/downloadazcopy-v10-linux"
+        if ($arch -in @("arm", "arm64")) {
+            $PackageUrl = "https://aka.ms/downloadazcopy-v10-linux-arm64"
+        } elseif ($arch -eq "x86_64") {
+            $PackageUrl = "https://aka.ms/downloadazcopy-v10-linux"
+        } else {
+            Write-Warning "Unknown architecture '${arch}', defaulting to x64"
+            $PackageUrl = "https://aka.ms/downloadazcopy-v10-linux"
+        }
     }
     $packageFile = "azcopy.tar.gz"
     $localAzCopyFile = "azcopy"
 }
 if ($IsMacOS) {
-    $packageUrl = ($PSVersionTable.OS -imatch "ARM64") ? "https://aka.ms/downloadazcopy-v10-mac-arm64" : "https://aka.ms/downloadazcopy-v10-mac"
+    if ($ReleaseDate -and $ReleaseVersion) {
+        $PackageUrl = "https://azcopyvnext.azureedge.net/releases/release-${ReleaseVersion}-${ReleaseDate}/azcopy_darwin_$(($PSVersionTable.OS -imatch "ARM64") ? "arm64" : "amd64")_${ReleaseVersion}.zip"
+    } else {
+        $PackageUrl = ($PSVersionTable.OS -imatch "ARM64") ? "https://aka.ms/downloadazcopy-v10-mac-arm64" : "https://aka.ms/downloadazcopy-v10-mac"
+    }
     $packageFile = "azcopy.zip"
     $localAzCopyFile = "azcopy"
 }
 $packagePath = Join-Path $binDirectory $packageFile
 $localAzCopyPath = Join-Path $binDirectory $localAzCopyFile
 
-Write-Host "Retrieving package to '${packageUrl}' from '${packagePath}'..."
-Invoke-Webrequest -Uri $packageUrl -OutFile $packagePath -UseBasicParsing
+Write-Host "Retrieving package to '${PackageUrl}' from '${packagePath}'..."
+Invoke-Webrequest -Uri $PackageUrl -OutFile $packagePath -UseBasicParsing
 
 Write-Host "Extracting ${packagePath} to ${binDirectory}..."
 if ($packageFile -match "\.zip$") {

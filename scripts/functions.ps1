@@ -537,3 +537,9 @@ function Validate-AzCli (
         az extension add -n storage-preview -y --allow-preview true
     }
 }
+
+$localAzCopyPath = (Join-Path $PSScriptRoot .. bin azcopy)
+if (Get-Command ($localAzCopyPath) -ErrorAction SilentlyContinue) {
+    Write-Verbose "Setting alias for azcopy -> ${localAzCopyPath}"
+    Set-Alias azcopy ($localAzCopyPath)
+}
