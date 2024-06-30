@@ -1,4 +1,4 @@
-name: azcopy-ci
+name: install-azcopy-ci
 
 on:
   push:
