@@ -1,3 +1,6 @@
+# Local binaries
+**/bin/*
+
 # Local .terraform directories
 **/.terraform/*
 
