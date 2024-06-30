@@ -1,0 +1,40 @@
+name: azcopy-ci
+
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - '**/README.md'
+    - '**/LICENSE'
+    - 'visuals/**'
+  pull_request:
+    paths-ignore:
+    - '**/README.md'
+    - '**/LICENSE'
+    - 'visuals/**'
+  schedule:
+  - cron:  '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  install_azcopy:
+    defaults:
+      run:
+        working-directory: scripts
+    name: Install AzCopy
+    strategy:
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+
+    - name: install_azcopy.ps1
+      run: | 
+        ./install_azcopy.ps1
+      shell: pwsh
