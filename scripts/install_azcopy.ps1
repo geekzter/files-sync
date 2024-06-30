@@ -4,10 +4,12 @@
     Installs AzCopy locally
 .DESCRIPTION 
     Installs AzCopy locally in the bin subdirectory
+.EXAMPLE
+    ./install_azcopy.ps1 -ReleaseDate 20240326 -ReleaseVersion 10.24.0
 #> 
 param ( 
-    [parameter(Mandatory=$true,ParameterSetName="Release")][string]$ReleaseDate,
-    [parameter(Mandatory=$true,ParameterSetName="Release")][string]$ReleaseVersion
+    [parameter(Mandatory=$false,ParameterSetName="Release")][string]$ReleaseDate,
+    [parameter(Mandatory=$false,ParameterSetName="Release")][string]$ReleaseVersion
 ) 
 
 . (Join-Path $PSScriptRoot functions.ps1)
