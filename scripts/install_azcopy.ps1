@@ -9,6 +9,7 @@
 .EXAMPLE
     ./install_azcopy.ps1 -ExcludeVersion 10.25.0,10.25.1
 #> 
+[CmdLetBinding(DefaultParameterSetName="Specify")]
 param ( 
     [parameter(Mandatory=$false,ParameterSetName="Specify")][string]$Version,
     [parameter(Mandatory=$false,ParameterSetName="Exclude")][string[]]$ExcludeVersion
