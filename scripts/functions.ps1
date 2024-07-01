@@ -256,20 +256,26 @@ function Get-AzCopyLogLevel () {
 function Get-AzCopyPackageUrl (
     [parameter(Mandatory=$false)]
     [string]
-    $Version
+    $Version,
+
+    [parameter(Mandatory=$false)]
+    [string[]]
+    $ExcludeVersion
 ) {
     (Invoke-RestMethod -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
                        | Where-Object {!$_.draft -and !$_.prerelease} `
                        | Sort-Object -Property @{Expression = "created_at"; Descending = $true} `
                        | Set-Variable releases
-                       | Select-Object -Skip 0 -First 1
     $releases | Format-Table -Property tag_name, created_at, published_at | Out-String | Write-Debug
 
     if ($Version) {
         $releases | Where-Object {$_.tag_name -match "^v${Version}"} `
                   | Select-Object -First 1 `
                   | Set-Variable release
-
+    } elseif ($ExcludeVersion) {
+        $releases | Where-Object {$_.tag_name -notmatch ($ExcludeVersion -join "|")} `
+                  | Select-Object -First 1 `
+                  | Set-Variable release
     } else {
         $releases | Select-Object -First 1 `
                   | Set-Variable release

@@ -5,11 +5,11 @@
 .DESCRIPTION 
     Installs AzCopy locally in the bin subdirectory
 .EXAMPLE
-    ./install_azcopy.ps1 -Version 10.24.0
+    ./install_azcopy.ps1 -Version 10.24
 #> 
 param ( 
-    [parameter(Mandatory=$false,ParameterSetName="Specify")][string]$Version
-    # [parameter(Mandatory=$false,ParameterSetName="Exclude")][string[]]$ExcludeVersion
+    [parameter(Mandatory=$false,ParameterSetName="Specify")][string]$Version,
+    [parameter(Mandatory=$false,ParameterSetName="Exclude")][string[]]$ExcludeVersion
 ) 
 
 . (Join-Path $PSScriptRoot functions.ps1)
@@ -23,7 +23,7 @@ if ($azCopy -and ($azCopy.CommandType -ne "Alias")) {
     azcopy -v
 }
 
-$packageUrl = Get-AzCopyPackageUrl -Version $Version
+$packageUrl = Get-AzCopyPackageUrl -Version $Version -ExcludeVersion $ExcludeVersion
 $packageFile = $packageUrl | Split-Path -Leaf
 $packagePath = Join-Path $binDirectory $packageFile
 $localAzCopyFile = $IsWindows ? "azcopy.exe" : "azcopy"

@@ -59,6 +59,11 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v2
 
+    - name: Install AzCopy
+      run: | 
+        ./install_azcopy.ps1 -ExcludeVersion 10.25.0,10.25.1
+      shell: pwsh
+
     - name: Use Azure CLI
       uses: azure/login@v1
       with:
