@@ -253,6 +253,89 @@ function Get-AzCopyLogLevel () {
     return "NONE"
 }
 
+function Get-AzCopyPackageUrl (
+    [parameter(Mandatory=$false)]
+    [string]
+    $Version,
+
+    [parameter(Mandatory=$false)]
+    [string[]]
+    $ExcludeVersion
+) {
+    (Invoke-RestMethod -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
+                       | Where-Object {!$_.draft -and !$_.prerelease} `
+                       | Sort-Object -Property @{Expression = "created_at"; Descending = $true} `
+                       | Set-Variable releases
+    $releases | Format-Table -Property tag_name, created_at, published_at | Out-String | Write-Debug
+
+    if ($Version) {
+        $releases | Where-Object {$_.tag_name -match "^v${Version}"} `
+                  | Select-Object -First 1 `
+                  | Set-Variable release
+    } elseif ($ExcludeVersion) {
+        $releases | Where-Object {$_.tag_name -notmatch ($ExcludeVersion -join "|")} `
+                  | Select-Object -First 1 `
+                  | Set-Variable release
+    } else {
+        $releases | Select-Object -First 1 `
+                  | Set-Variable release
+    }
+
+    if (!$release) {
+        Write-Warning "AzCopy ${Version} not found, exiting"
+        exit
+    }
+    $release | Format-List | Out-String | Write-Debug
+    $release.tag_name -replace "^v","" | Set-Variable azcopyVersion
+    [datetime]::parse($release.created_at) | Set-Variable releaseDate
+
+    if ($IsWindows) {
+        $os = "windows"
+        $architecture = [Environment]::Is64BitProcess ? "amd64" : "386"
+        $extension = "zip"
+    }
+    if ($IsMacOS) {
+        $os = "darwin"
+        $architecture = (($PSVersionTable.OS -imatch "ARM64") -and $MajorVersion -ge 3) ? "arm64" : "amd64"
+        $extension = "zip"
+    }
+    if ($IsLinux) {
+        $os = "linux"
+        $osArchitecture = $(uname -m)
+        if ($osArchitecture -in @("arm", "arm64")) {
+            $architecture = "arm64"
+        } elseif ($osArchitecture -eq "x86_64") {
+            $architecture = "amd64"
+        } else {
+            Write-Warning "Unknown architecture '${arch}', defaulting to x64"
+            $architecture = "amd64"
+        }
+        $extension = "tar.gz"
+    }
+
+    "https://azcopyvnext.azureedge.net/releases/release-{0}-{1}/azcopy_{2}_{3}_{0}.{4}" -f $azcopyVersion, `
+                                                                                           $releaseDate.ToString("yyyyMMdd"),`
+                                                                                           $os, `
+                                                                                           $architecture, `
+                                                                                           $extension `
+                                                                                        | Set-Variable packageUrl
+
+    try {
+        Write-Verbose "Validating whether package exists at '${packageUrl}'..."
+        Invoke-WebRequest -method HEAD $packageUrl | Set-Variable packageResponse
+        $packageResponse | Format-List | Out-String | Write-Debug
+        "AzCopy package version {0} for {1} ({2}):`n{3}" -f $azcopyVersion, `
+                                                            $os, `
+                                                            $architecture, `
+                                                            $packageUrl `
+                                                         | Write-Verbose
+        return $packageUrl
+    } catch {
+        throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
+    }
+}
+
+
 function Get-LoggedInPrincipal () {
     az account show --query user -o json | ConvertFrom-Json | Set-Variable principal
     switch ($principal.Type) {

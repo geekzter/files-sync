@@ -31,7 +31,7 @@ on:
         type: choice
         required: true
         description: 'Runner image'
-        default: windows-latest
+        default: ubuntu-latest
         options: 
         - macos-latest
         - ubuntu-latest
@@ -58,6 +58,12 @@ jobs:
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
+
+    - name: Install AzCopy
+      run: | 
+        # FIX: https://github.com/Azure/azure-storage-azcopy/issues/2714
+        ./install_azcopy.ps1 -ExcludeVersion 10.25.0,10.25.1
+      shell: pwsh
 
     - name: Use Azure CLI
       uses: azure/login@v1
@@ -127,7 +133,9 @@ jobs:
         # Create upload directory
         $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
-        Get-ChildItem $env:GITHUB_WORKSPACE -Recurse | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
+        Get-ChildItem $env:GITHUB_WORKSPACE -Recurse `
+                                            | Where-Object { $_.FullName -notlike "*bin*" } `
+                                            | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
 
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           Write-Host "Files to be uploaded:"
