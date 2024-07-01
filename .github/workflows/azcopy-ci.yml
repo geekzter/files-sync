@@ -133,7 +133,7 @@ jobs:
         # Create upload directory
         $uploadDirectory = (Join-Path $env:RUNNER_WORKSPACE "upload")
         New-Item $uploadDirectory -ItemType "directory" -Force | Write-Debug
-        Get-ChildItem $env:GITHUB_WORKSPACE -Recurse | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
+        Get-ChildItem $env:GITHUB_WORKSPACE -Exclude bin -Recurse | Copy-Item -Destination {Join-Path $uploadDirectory $_.FullName.Substring(($env:GITHUB_WORKSPACE).Length)}
 
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           Write-Host "Files to be uploaded:"
