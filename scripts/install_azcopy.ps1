@@ -6,6 +6,8 @@
     Installs AzCopy locally in the bin subdirectory
 .EXAMPLE
     ./install_azcopy.ps1 -Version 10.24
+.EXAMPLE
+    ./install_azcopy.ps1 -ExcludeVersion 10.25.0,10.25.1
 #> 
 param ( 
     [parameter(Mandatory=$false,ParameterSetName="Specify")][string]$Version,
