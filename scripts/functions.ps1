@@ -266,7 +266,7 @@ function Get-AzCopyPackageUrl (
     [string]
     $Token=$env:GH_TOKEN
 ) {
-    $reqeustHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
+    $requestHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
     (Invoke-RestMethod -Headers $requestHeaders `
                        -Method Get `
                        -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
