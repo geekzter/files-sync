@@ -260,9 +260,16 @@ function Get-AzCopyPackageUrl (
 
     [parameter(Mandatory=$false)]
     [string[]]
-    $ExcludeVersion
+    $ExcludeVersion,
+
+    [parameter(Mandatory=$false)]
+    [string]
+    $Token=$env:GH_TOKEN
 ) {
-    (Invoke-RestMethod -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
+    $reqeustHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
+    (Invoke-RestMethod -Headers $requestHeaders `
+                       -Method Get `
+                       -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
                        | Where-Object {!$_.draft -and !$_.prerelease} `
                        | Sort-Object -Property @{Expression = "created_at"; Descending = $true} `
                        | Set-Variable releases
