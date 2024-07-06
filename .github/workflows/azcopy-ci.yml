@@ -63,6 +63,8 @@ jobs:
       run: | 
         # FIX: https://github.com/Azure/azure-storage-azcopy/issues/2714
         ./install_azcopy.ps1 -ExcludeVersion 10.25.0,10.25.1
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: pwsh
 
     - name: Use Azure CLI
