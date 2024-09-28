@@ -34,7 +34,7 @@ function Open-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
     [parameter(Mandatory=$true)][string]$SubscriptionId,
-    # [parameter(Mandatory=$false)][switch]$Public=($env:GEEKZTER_AZCOPY_PUBLIC_ACCESS ?? $false),
+    [parameter(Mandatory=$false)][switch]$Public=($env:GEEKZTER_AZCOPY_PUBLIC_ACCESS ?? $false),
     [parameter(Mandatory=$false)][int]$WaitToPropagateSeconds=45
 ) {
     # Add firewall rule on storage account
@@ -42,7 +42,7 @@ function Open-Firewall (
     if ($Public) {
         Write-Host "Enabling public access on Storage Account '$StorageAccountName'..."
         az storage account update --account-name $StorageAccountName `
-                                  --public-network-access {Disabled, Enabled
+                                  --public-network-access Enabled
     } else {
         $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
         Write-Host "Opening firewall for ${ipAddress} on Storage Account '$StorageAccountName'..."
