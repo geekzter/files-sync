@@ -121,6 +121,9 @@ jobs:
                                      -ResourceGroup $env:FILES_SYNC_RESOURCE_GROUP `
                                      -SkipResourceLock `
                                      -SubscriptionId ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+          Write-Host "Waiting for resource graph to populate..."
+          Start-Sleep -Seconds 30
       shell: pwsh
 
     - name: Prepare upload
