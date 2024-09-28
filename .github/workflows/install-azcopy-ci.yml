@@ -36,6 +36,13 @@ jobs:
 
     - name: install_azcopy.ps1
       run: | 
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
+        }
+
         ./install_azcopy.ps1
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
