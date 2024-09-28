@@ -34,7 +34,7 @@ function Open-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
     [parameter(Mandatory=$true)][string]$SubscriptionId,
-    [parameter(Mandatory=$false)][switch]$Public=($env:GEEKZTER_AZCOPY_PUBLIC_ACCESS ?? $false),
+    # [parameter(Mandatory=$false)][switch]$Public=($env:GEEKZTER_AZCOPY_PUBLIC_ACCESS ?? $false),
     [parameter(Mandatory=$false)][int]$WaitToPropagateSeconds=45
 ) {
     # Add firewall rule on storage account
