@@ -81,6 +81,9 @@ jobs:
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT_CLONE=filesync2ci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
+        if ($IsMacOS) {
+          Write-Output "GEEKZTER_AZCOPY_PUBLIC_ACCESS=true" >> $env:GITHUB_ENV
+        }
       shell: pwsh
 
     - name: List environment variables

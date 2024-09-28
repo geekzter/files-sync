@@ -34,28 +34,34 @@ function Open-Firewall (
     [parameter(Mandatory=$true)][string]$StorageAccountName,   
     [parameter(Mandatory=$true)][string]$ResourceGroupName,   
     [parameter(Mandatory=$true)][string]$SubscriptionId,
+    [parameter(Mandatory=$false)][switch]$Public=($env:GEEKZTER_AZCOPY_PUBLIC_ACCESS ?? $false),
     [parameter(Mandatory=$false)][int]$WaitToPropagateSeconds=45
 ) {
     # Add firewall rule on storage account
-    Write-Host "Opening firewall on Storage Account '$StorageAccountName'..."
 
-    $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
-    Write-Debug "Public IP address is $ipAddress"
-    Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
-    if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow'] " -o tsv) {
-        Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
+    if ($Public) {
+        Write-Host "Enabling public access on Storage Account '$StorageAccountName'..."
+        az storage account update --account-name $StorageAccountName `
+                                  --public-network-access {Disabled, Enabled
     } else {
-        az storage account network-rule add --account-name $StorageAccountName `
-                                            -g $ResourceGroupName `
-                                            --ip-address $ipAddress `
-                                            --subscription $SubscriptionId `
-                                            -o none
-        Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
-
-        Write-Host "Waiting $WaitToPropagateSeconds seconds for firewall rules update to reflect..."
-        Start-Sleep -Seconds $WaitToPropagateSeconds
-
+        $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
+        Write-Host "Opening firewall for ${ipAddress} on Storage Account '$StorageAccountName'..."
+        Write-Debug "Public IP address is $ipAddress"
+        Write-Verbose "Adding rule for Storage Account '$StorageAccountName' to allow ip address '$ipAddress'..."
+        if (az storage account network-rule list -n $StorageAccountName -g $ResourceGroupName --subscription $SubscriptionId --query "ipRules[?ipAddressOrRange=='$ipAddress'&&action=='Allow'] " -o tsv) {
+            Write-Information "Firewall rule to allow '$ipAddress' already exists on storage account '$StorageAccountName'"
+        } else {
+            az storage account network-rule add --account-name $StorageAccountName `
+                                                -g $ResourceGroupName `
+                                                --ip-address $ipAddress `
+                                                --subscription $SubscriptionId `
+                                                -o none
+            Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+        }    
     }
+
+    Write-Host "Waiting $WaitToPropagateSeconds seconds for firewall rules update to reflect..."
+    Start-Sleep -Seconds $WaitToPropagateSeconds
 }
 
 function Build-AzCopyArgs (
