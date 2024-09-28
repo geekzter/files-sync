@@ -366,7 +366,10 @@ function Get-LoggedInPrincipal () {
 function Get-StorageAccount (
     [parameter(Mandatory=$true)][string]$StorageAccountName
 ) {
-    az graph query -q "resources | where type =~ 'microsoft.storage/storageaccounts' and name == '$StorageAccountName'" `
+    Write-Vebose "Querying Azure resource graph for storage account '$StorageAccountName'..."
+    $query = "resources | where type =~ 'microsoft.storage/storageaccounts' and name == '$StorageAccountName'"
+    Write-Debug "Query: $query"
+    az graph query -q "${query}" `
                    -a `
                    --query "data" `
                    -o json | ConvertFrom-Json | Set-Variable storageAccount
