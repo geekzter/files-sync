@@ -294,7 +294,7 @@ jobs:
       shell: pwsh
 
     - name: Clean Up
-      if: ${{ always() || inputs.destroy }} 
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.destroy }} 
       run: |
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"
