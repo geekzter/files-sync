@@ -1,7 +1,7 @@
 {
     /*
     This is en example, configure to your own needs
-    You can store this file in an alternate location and point to it using the GEEKZTER_AZCOPY_SETTINGS_FILE environment variable
+    You can store this file in an alternate location and point to it using the FILES_SYNC_AZCOPY_SETTINGS environment variable
     */
     // ID of the Azure Active Directory tenant you eill need to be logged onto to access Storage Accounts
     "tenantId" : "00000000-0000-0000-0000-000000000000",

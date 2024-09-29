@@ -61,8 +61,15 @@ jobs:
 
     - name: Install AzCopy
       run: | 
+        if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
+          $InformationPreference = "Continue"
+          $VerbosePreference = "Continue"
+          $DebugPreference = "Continue"
+          Set-PSDebug -Trace 1
+        }
+
         # FIX: https://github.com/Azure/azure-storage-azcopy/issues/2714
-        ./install_azcopy.ps1 -ExcludeVersion 10.25,10.26.0
+        ./install_azcopy.ps1 -ExcludeVersion "10.25","10.26.0"
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: pwsh
@@ -81,6 +88,9 @@ jobs:
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT=filesyncci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_STORAGE_ACCOUNT_CLONE=filesync2ci${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
         Write-Output "FILES_SYNC_RESOURCE_GROUP=file-sync-ci-rg${env:GITHUB_RUN_ID}" >> $env:GITHUB_ENV
+        if ($IsMacOS) {
+          Write-Output "FILES_SYNC_AZCOPY_PUBLIC_ACCESS=true" >> $env:GITHUB_ENV
+        }
       shell: pwsh
 
     - name: List environment variables
@@ -284,7 +294,7 @@ jobs:
       shell: pwsh
 
     - name: Clean Up
-      if: ${{ always() || inputs.destroy }} 
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.destroy }} 
       run: |
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
           $InformationPreference = "Continue"

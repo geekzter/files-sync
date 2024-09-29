@@ -3,11 +3,11 @@
 .SYNOPSIS 
     Syncs a pre-configured list of directory and Azure storage account container pairs
 .DESCRIPTION 
-    Update azcopy-settings.jsonc or use the GEEKZTER_AZCOPY_SETTINGS_FILE environment variable to point to a settings file in an alternate location
+    Update azcopy-settings.jsonc or use the FILES_SYNC_AZCOPY_SETTINGS environment variable to point to a settings file in an alternate location
 #>
 #Requires -Version 7.2
 param ( 
-    [parameter(Mandatory=$false)][string]$SettingsFile=$env:GEEKZTER_AZCOPY_SETTINGS_FILE ?? (Join-Path $PSScriptRoot azcopy-settings.jsonc),
+    [parameter(Mandatory=$false)][string]$SettingsFile=$env:FILES_SYNC_AZCOPY_SETTINGS ?? (Join-Path $PSScriptRoot azcopy-settings.jsonc),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
