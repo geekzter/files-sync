@@ -41,7 +41,8 @@ function Open-Firewall (
 
     if ($Public) {
         Write-Host "Enabling public access on Storage Account '$StorageAccountName'..."
-        az storage account update --account-name $StorageAccountName `
+        az storage account update -n $StorageAccountName `
+                                  --default-action Allow `
                                   --public-network-access Enabled
     } else {
         $ipAddress=$(Invoke-RestMethod -Uri https://ipinfo.io/ip -MaximumRetryCount 9).Trim()
