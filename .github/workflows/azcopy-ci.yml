@@ -170,6 +170,7 @@ jobs:
           $DebugPreference = "Continue"
           Set-PSDebug -Trace 1
         }
+        $ErrorActionPreference = "Stop"
 
         # Wait for resource graph to populate
         $waitSeconds = 45
@@ -196,6 +197,7 @@ jobs:
           $DebugPreference = "Continue"
           Set-PSDebug -Trace 1
         }
+        $ErrorActionPreference = "Stop"
 
         ./clone_storage_account.ps1 -SourceName $env:FILES_SYNC_STORAGE_ACCOUNT `
                                     -TargetName $env:FILES_SYNC_STORAGE_ACCOUNT_CLONE `
@@ -211,6 +213,7 @@ jobs:
           $DebugPreference = "Continue"
           Set-PSDebug -Trace 1
         }
+        $ErrorActionPreference = "Stop"
 
         # Wait for resource graph to populate
         $waitSeconds = 45
