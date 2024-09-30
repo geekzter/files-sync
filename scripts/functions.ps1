@@ -207,7 +207,9 @@ function Execute-AzCopy (
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -ne 0) {
                     Write-Output "azcopy command '$AzCopyCommand' exited with status $exitCode, exiting $($MyInvocation.MyCommand.Name)" | Tee-Object -FilePath $LogFile -Append | Add-Message -Passthru | Write-Error -ErrorId $exitCode
-                    exit $exitCode
+                    if ($ErrorActionPreference -notmatch "Continue") {
+                        exit $exitCode
+                    }
                 }
             }
         } catch {
