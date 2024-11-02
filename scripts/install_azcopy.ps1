@@ -5,7 +5,7 @@
 .DESCRIPTION 
     Installs AzCopy locally in the bin subdirectory
 .EXAMPLE
-    ./install_azcopy.ps1 -Version 10.24
+    ./install_azcopy.ps1 -Version 10.27
 .EXAMPLE
     ./install_azcopy.ps1 -ExcludeVersion 10.25,10.26.0
 #> 
