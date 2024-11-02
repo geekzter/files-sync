@@ -138,6 +138,26 @@ function Create-SasToken (
     return $storageAccountToken
 }
 
+function Display-ExceptionInformation() {
+    Write-Verbose "$($_.Exception.GetType()): $($_.Exception.Message)"
+    if ($_.ErrorDetails.Message) {
+        Write-Debug $_.ErrorDetails.Message
+
+        if ($_.ErrorDetails.Message -match "^{") {
+            $errorResponse = ($_.ErrorDetails.Message | ConvertFrom-Json)
+            $errorResult = $errorResponse.error 
+            #$errorReason = $errorResult.errors[0].reason
+            $errorCode = $errorResult.code
+            $errorMessage = $errorResult.message
+            Write-Verbose "${errorCode} - ${errorMessage}"
+            Write-Verbose ($errorResult.errors | Format-Table | Out-String)    
+            Write-Warning ($errorResult.message -replace "<[^<]*>","") # Remove markup
+        }
+    } else {
+        Write-Warning $_.Exception.Message
+    }
+}
+
 function Execute-AzCopy (
     [parameter(Mandatory=$true)][string]$AzCopyCommand,
     [parameter(Mandatory=$true)][string]$Source,
@@ -262,6 +282,31 @@ function Get-AzCopyLogLevel () {
     return "NONE"
 }
 
+function Get-AzCopyPackageAkaMSUrl () {
+    if ($IsWindows) {
+        $packageAkaMSUrl = [Environment]::Is64BitProcess ? "https://aka.ms/downloadazcopy-v10-windows" : "https://aka.ms/downloadazcopy-v10-windows-32bit"
+    }
+    if ($IsMacOS) {
+        $packageAkaMSUrl = (($PSVersionTable.OS -imatch "ARM64") -and $MajorVersion -ge 3) ? "https://aka.ms/downloadazcopy-v10-mac-arm64" : "https://aka.ms/downloadazcopy-v10-mac"
+    }
+    if ($IsLinux) {
+        $osArchitecture = $(uname -m)
+        if ($osArchitecture -in @("arm", "arm64")) {
+            $packageAkaMSUrl = "https://aka.ms/downloadazcopy-v10-linux-arm64"
+        } elseif ($osArchitecture -eq "x86_64") {
+            $packageAkaMSUrl = "https://aka.ms/downloadazcopy-v10-linux"
+        } else {
+            Write-Warning "Unknown architecture '${arch}', defaulting to x64"
+            $packageAkaMSUrl = "https://aka.ms/downloadazcopy-v10-linux"
+        }
+    }
+    Write-Verbose "Using ${packageAkaMSUrl}"
+    $packageUrl = [System.Net.HttpWebRequest]::Create($packageAkaMSUrl).GetResponse().ResponseUri.AbsoluteUri
+    Write-Verbose "${packageAkaMSUrl} redirects to ${packageUrl}"
+
+    return $packageUrl
+}
+
 function Get-AzCopyPackageUrl (
     [parameter(Mandatory=$false)]
     [string]
@@ -338,19 +383,28 @@ function Get-AzCopyPackageUrl (
 
     try {
         Write-Verbose "Validating whether package exists at '${packageUrl}'..."
-        Invoke-WebRequest -method HEAD $packageUrl | Set-Variable packageResponse
+        Invoke-WebRequest -Method HEAD `
+                          -PreserveHttpMethodOnRedirect `
+                          -Uri $packageUrl `
+                          | Set-Variable packageResponse
         $packageResponse | Format-List | Out-String | Write-Debug
         "AzCopy package version {0} for {1} ({2}):`n{3}" -f $azcopyVersion, `
                                                             $os, `
                                                             $architecture, `
                                                             $packageUrl `
                                                          | Write-Verbose
-        return $packageUrl
     } catch {
-        throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
+        if (!$Version -and $_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
+            $packageAkaMSUrl = Get-AzCopyPackageAkaMSUrl
+            Write-Warning "Package ${packageUrl} not found, using ${packageAkaMSUrl} instead"
+            $packageUrl = $packageAkaMSUrl
+        }
+        else {
+            throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
+        }
     }
+    return $packageUrl
 }
-
 
 function Get-LoggedInPrincipal () {
     az account show --query user -o json | ConvertFrom-Json | Set-Variable principal
