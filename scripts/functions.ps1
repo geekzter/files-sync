@@ -311,15 +311,15 @@ function Get-AzCopyPackageAkaMSUrl (
     Write-Verbose "Using ${packageAkaMSUrl}"
     $packageUrl = [System.Net.HttpWebRequest]::Create($packageAkaMSUrl).GetResponse().ResponseUri.AbsoluteUri
     Write-Verbose "${packageAkaMSUrl} redirects to ${packageUrl}"
-    $packageUrl -replace "^.*release-([^-]+).*$","`$1" | Set-Variable azcopyVersion
-    if ($Version -and ($azcopyVersion -notmatch "${Version}")) {
-        Write-Error "${packageAkaMSUrl} references ${azcopyVersion} instead of ${Version}, exiting"
+    $packageUrl -replace "^.*release-([^-]+).*$","`$1" | Set-Variable akaMsAzCopyVersion
+    if ($Version -and ($akaMsAzCopyVersion -notmatch "${Version}")) {
+        Write-Error "${packageAkaMSUrl} references ${akaMsAzCopyVersion} instead of ${Version}, exiting"
         exit
-    } elseif ($ExcludeVersion -and ($azcopyVersion -match ($ExcludeVersion -join "|"))) {
-        Write-Error "${packageAkaMSUrl} references ${azcopyVersion} which is excluded ($ExcludeVersion), exiting"
+    } elseif ($ExcludeVersion -and ($akaMsAzCopyVersion -match ($ExcludeVersion -join "|"))) {
+        Write-Error "${packageAkaMSUrl} references ${akaMsAzCopyVersion} which is excluded ($ExcludeVersion), exiting"
         exit
     } else {
-        Write-Verbose "Using ${packageAkaMSUrl} for ${Version}"
+        Write-Verbose "Using ${packageAkaMSUrl} and version ${akaMsAzCopyVersion}"
     }
 
     return $packageUrl
@@ -391,36 +391,47 @@ function Get-AzCopyPackageUrl (
         }
         $extension = "tar.gz"
     }
+    
+    # Package may have released on the next day, so we need to check both
+    foreach ($actualReleaseDate in ($releaseDate, $releaseDate.AddDays(1))) {
+        try {
+            "https://azcopyvnext.azureedge.net/releases/release-{0}-{1}/azcopy_{2}_{3}_{0}.{4}" -f $azcopyVersion, `
+                                                                                                   $actualReleaseDate.ToString("yyyyMMdd"),`
+                                                                                                   $os, `
+                                                                                                   $architecture, `
+                                                                                                   $extension `
+                                                                                                 | Set-Variable packageUrl
 
-    "https://azcopyvnext.azureedge.net/releases/release-{0}-{1}/azcopy_{2}_{3}_{0}.{4}" -f $azcopyVersion, `
-                                                                                           $releaseDate.ToString("yyyyMMdd"),`
-                                                                                           $os, `
-                                                                                           $architecture, `
-                                                                                           $extension `
-                                                                                        | Set-Variable packageUrl
+            Write-Verbose "Validating whether package exists at '${packageUrl}'..."
+            Invoke-WebRequest -Method HEAD `
+                              -PreserveHttpMethodOnRedirect `
+                              -Uri $packageUrl `
+                              | Set-Variable packageResponse
+            Write-Verbose "Package ${packageUrl} found"
+            $packageResponse | Format-List | Out-String | Write-Debug
+            "AzCopy package version {0} for {1} ({2}):`n{3}" -f $azcopyVersion, `
+                                                                $os, `
+                                                                $architecture, `
+                                                                $packageUrl `
+                                                             | Write-Verbose
 
-    try {
-        Write-Verbose "Validating whether package exists at '${packageUrl}'..."
-        Invoke-WebRequest -Method HEAD `
-                          -PreserveHttpMethodOnRedirect `
-                          -Uri $packageUrl `
-                          | Set-Variable packageResponse
-        $packageResponse | Format-List | Out-String | Write-Debug
-        "AzCopy package version {0} for {1} ({2}):`n{3}" -f $azcopyVersion, `
-                                                            $os, `
-                                                            $architecture, `
-                                                            $packageUrl `
-                                                         | Write-Verbose
-    } catch {
-        if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
-            $packageAkaMSUrl = Get-AzCopyPackageAkaMSUrl -Version $Version -ExcludeVersion $ExcludeVersion
-            Write-Warning "Package ${packageUrl} not found, trying to use ${packageAkaMSUrl} instead"
-            $packageUrl = $packageAkaMSUrl
-        }
-        else {
-            throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
+            break
+        } catch {
+            if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
+                Write-Warning "Package ${packageUrl} not found"
+                continue
+            }
+            else {
+                throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
+            }
         }
     }
+    if (!$packageUrl) {
+        $packageAkaMSUrl = Get-AzCopyPackageAkaMSUrl -Version $Version -ExcludeVersion $ExcludeVersion
+        Write-Warning "Package ${packageUrl} not found, trying to use ${packageAkaMSUrl} instead"
+        $packageUrl = $packageAkaMSUrl
+    }
+
     return $packageUrl
 }
 
