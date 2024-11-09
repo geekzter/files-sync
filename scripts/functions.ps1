@@ -418,7 +418,7 @@ function Get-AzCopyPackageUrl (
             break
         } catch {
             if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
-                Write-Warning "Package ${packageUrl} not found"
+                Write-Warning "Package ${packageUrl} not found on $($actualReleaseDate.ToString("yyyyMMdd"))"
                 continue
             }
             else {
