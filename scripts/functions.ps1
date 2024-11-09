@@ -312,7 +312,7 @@ function Get-AzCopyPackageAkaMSUrl (
     $packageUrl = [System.Net.HttpWebRequest]::Create($packageAkaMSUrl).GetResponse().ResponseUri.AbsoluteUri
     Write-Verbose "${packageAkaMSUrl} redirects to ${packageUrl}"
     $packageUrl -replace "^.*release-([^-]+).*$","`$1" | Set-Variable azcopyVersion
-    if ($azcopyVersion -notmatch "${Version}") {
+    if ($Version -and ($azcopyVersion -notmatch "${Version}")) {
         Write-Error "${packageAkaMSUrl} references ${azcopyVersion} instead of ${Version}, exiting"
         exit
     } elseif ($ExcludeVersion -and ($azcopyVersion -match ($ExcludeVersion -join "|"))) {
