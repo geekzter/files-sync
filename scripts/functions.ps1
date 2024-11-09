@@ -315,9 +315,11 @@ function Get-AzCopyPackageAkaMSUrl (
     if ($azcopyVersion -notmatch "${Version}") {
         Write-Error "${packageAkaMSUrl} references ${azcopyVersion} instead of ${Version}, exiting"
         exit
-    } elseif ($azcopyVersion -match ($ExcludeVersion -join "|")) {
+    } elseif ($ExcludeVersion -and ($azcopyVersion -match ($ExcludeVersion -join "|"))) {
         Write-Error "${packageAkaMSUrl} references ${azcopyVersion} which is excluded ($ExcludeVersion), exiting"
         exit
+    } else {
+        Write-Verbose "Using ${packageAkaMSUrl} for ${Version}"
     }
 
     return $packageUrl
