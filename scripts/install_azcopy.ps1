@@ -12,7 +12,8 @@
 [CmdLetBinding(DefaultParameterSetName="Specify")]
 param ( 
     [parameter(Mandatory=$false,ParameterSetName="Specify")][string]$Version,
-    [parameter(Mandatory=$false,ParameterSetName="Exclude")][string[]]$ExcludeVersion
+    [parameter(Mandatory=$false,ParameterSetName="Exclude")][string[]]$ExcludeVersion,
+    [parameter(Mandatory=$false)][switch]$WhatIf
 ) 
 
 . (Join-Path $PSScriptRoot functions.ps1)
@@ -32,6 +33,10 @@ $packagePath = Join-Path $binDirectory $packageFile
 $localAzCopyFile = $IsWindows ? "azcopy.exe" : "azcopy"
 $localAzCopyPath = Join-Path $binDirectory $localAzCopyFile
 
+if ($WhatIf) {
+    Write-Host "WhatIf: Would have downloaded package to '${packageUrl}' from '${packagePath}'..."
+    exit
+}
 Write-Host "Retrieving package to '${packageUrl}' from '${packagePath}'..."
 Invoke-Webrequest -Uri $packageUrl -OutFile $packagePath -UseBasicParsing
 

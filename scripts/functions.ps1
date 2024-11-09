@@ -282,7 +282,15 @@ function Get-AzCopyLogLevel () {
     return "NONE"
 }
 
-function Get-AzCopyPackageAkaMSUrl () {
+function Get-AzCopyPackageAkaMSUrl (
+    [parameter(Mandatory=$false)]
+    [string]
+    $Version,
+
+    [parameter(Mandatory=$false)]
+    [string[]]
+    $ExcludeVersion
+) {
     if ($IsWindows) {
         $packageAkaMSUrl = [Environment]::Is64BitProcess ? "https://aka.ms/downloadazcopy-v10-windows" : "https://aka.ms/downloadazcopy-v10-windows-32bit"
     }
@@ -303,6 +311,14 @@ function Get-AzCopyPackageAkaMSUrl () {
     Write-Verbose "Using ${packageAkaMSUrl}"
     $packageUrl = [System.Net.HttpWebRequest]::Create($packageAkaMSUrl).GetResponse().ResponseUri.AbsoluteUri
     Write-Verbose "${packageAkaMSUrl} redirects to ${packageUrl}"
+    $packageUrl -replace "^.*release-([^-]+).*$","`$1" | Set-Variable azcopyVersion
+    if ($azcopyVersion -notmatch "${Version}") {
+        Write-Error "${packageAkaMSUrl} references ${azcopyVersion} instead of ${Version}, exiting"
+        exit
+    } elseif ($azcopyVersion -match ($ExcludeVersion -join "|")) {
+        Write-Error "${packageAkaMSUrl} references ${azcopyVersion} which is excluded ($ExcludeVersion), exiting"
+        exit
+    }
 
     return $packageUrl
 }
@@ -394,9 +410,9 @@ function Get-AzCopyPackageUrl (
                                                             $packageUrl `
                                                          | Write-Verbose
     } catch {
-        if (!$Version -and $_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
-            $packageAkaMSUrl = Get-AzCopyPackageAkaMSUrl
-            Write-Warning "Package ${packageUrl} not found, using ${packageAkaMSUrl} instead"
+        if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
+            $packageAkaMSUrl = Get-AzCopyPackageAkaMSUrl -Version $Version -ExcludeVersion $ExcludeVersion
+            Write-Warning "Package ${packageUrl} not found, trying to use ${packageAkaMSUrl} instead"
             $packageUrl = $packageAkaMSUrl
         }
         else {
