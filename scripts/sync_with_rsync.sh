@@ -34,10 +34,10 @@ echo "Log file: $LOG_FILE"
 while read -r source target delete exclude; do
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
     echo "$source -> $target" 
-    if [[ "$exclude" != "" ]]; then
+    if [ ! -z "$exclude" ]; then
         rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
     fi
-    if [ ! -z "$source" ]; then
+    if  [[ "$source" == *\** ]]; then
         sourceExpanded=$source
     else
         sourceExpanded=$(realpath $source)
