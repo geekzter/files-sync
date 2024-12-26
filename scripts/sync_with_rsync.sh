@@ -25,12 +25,12 @@ while [ "$1" != "" ]; do
     shift
 done
 
-echo "ALLOW_DELETE: $ALLOW_DELETE"
-echo "DRY_RUN: $DRY_RUN"
-echo "FILES_SYNC_RSYNC_SETTINGS: $FILES_SYNC_RSYNC_SETTINGS"
+echo "Allow delete: $ALLOW_DELETE"
+echo "Dry run: $DRY_RUN"
+echo "Settings file: $FILES_SYNC_RSYNC_SETTINGS"
+echo "Log file: $LOG_FILE"
 
 while read -r source target delete exclude; do
-    echo "Do whatever with ${source} ${target} ${delete} ${exclude}"
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
     echo "$source -> $target" 
     if [[ "$exclude" != "" ]]; then
@@ -59,5 +59,3 @@ while read -r source target delete exclude; do
 
     eval "${rsyncCommand}"
 done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source) \(.target) \(.delete) \(.exclude)"')
-
-echo "Log file: $LOG_FILE"
