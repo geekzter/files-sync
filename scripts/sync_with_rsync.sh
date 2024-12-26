@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-set -x
+# set -x
 
 echo $(basename $0) "$@"
 
@@ -34,7 +34,8 @@ echo "Log file: $LOG_FILE"
 while read -r source target delete exclude; do
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
     echo "$source -> $target" 
-    if [ -n "$exclude" ]; then
+    echo "exclude: $exclude"
+    if [ -n "$exclude" ] && [ "$exclude" != "null" ]; then
         rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
     fi
     if  [[ "$source" == *\** ]]; then
