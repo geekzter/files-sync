@@ -33,7 +33,7 @@ while read -r source target delete exclude; do
     echo "Do whatever with ${source} ${target} ${delete} ${exclude}"
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
     echo "$source -> $target" 
-    rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
+    # rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
 
     if [[ "$source" == *\** ]]; then
         sourceExpanded=$source
@@ -56,7 +56,7 @@ while read -r source target delete exclude; do
     rsyncCommand="rsync $rsyncArgs $sourceExpanded $targetExpanded"
     echo "rsyncCommand: $rsyncCommand"
 
-    eval "${rsyncCommand}"
+    # eval "${rsyncCommand}"
 done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source) \(.target) \(.delete) \(.exclude)"')
 
 echo "Log file: $LOG_FILE"
