@@ -57,7 +57,7 @@ while read -r source target delete exclude; do
     rsyncCommand="rsync $rsyncArgs $sourceExpanded $targetExpanded"
     echo "rsyncCommand: $rsyncCommand"
 
-    # eval "${rsyncCommand}"
+    eval "${rsyncCommand}"
 done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source) \(.target) \(.delete) \(.exclude)"')
 
 echo "Log file: $LOG_FILE"
