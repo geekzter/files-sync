@@ -30,13 +30,9 @@ echo "DRY_RUN: $DRY_RUN"
 echo "FILES_SYNC_RSYNC_SETTINGS: $FILES_SYNC_RSYNC_SETTINGS"
 
 set -e
-jq --nul-output '.syncPairs[]' $FILES_SYNC_RSYNC_SETTINGS | \
-  while IFS= read -r -d $'\0' rsync_json; do
+while read -r source target delete exclude; do
+    echo "Do whatever with ${source} ${target} ${delete} ${exclude}"
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
-    delete=$(echo "$rsync_json" | jq -r .delete)
-    exclude=$(echo "$rsync_json" | jq -r .exclude)
-    source=$(echo "$rsync_json" | jq -r .source)
-    target=$(echo "$rsync_json" | jq -r .target)
     echo "$source -> $target" 
     rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
 
@@ -62,6 +58,6 @@ jq --nul-output '.syncPairs[]' $FILES_SYNC_RSYNC_SETTINGS | \
     echo "rsyncCommand: $rsyncCommand"
 
     eval "${rsyncCommand}"
-  done
+done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source) \(.target) \(.delete) \(.exclude)"')
 
-  echo "Log file: $LOG_FILE"
+echo "Log file: $LOG_FILE"
