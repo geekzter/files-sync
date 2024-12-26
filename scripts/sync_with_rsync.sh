@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -x
+set -e
 
 echo $(basename $0) "$@"
 
@@ -29,7 +29,6 @@ echo "ALLOW_DELETE: $ALLOW_DELETE"
 echo "DRY_RUN: $DRY_RUN"
 echo "FILES_SYNC_RSYNC_SETTINGS: $FILES_SYNC_RSYNC_SETTINGS"
 
-set -e
 while read -r source target delete exclude; do
     echo "Do whatever with ${source} ${target} ${delete} ${exclude}"
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
