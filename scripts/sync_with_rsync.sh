@@ -1,4 +1,5 @@
 #!/bin/bash
+# set -x
 
 echo $(basename $0) "$@"
 
@@ -51,10 +52,16 @@ jq --nul-output '.syncPairs[]' $FILES_SYNC_RSYNC_SETTINGS | \
         rsyncArgs="$rsyncArgs --dry-run"
     fi
     if [ $VERBOSE -eq 1 ]; then
+        rsyncArgs="$rsyncArgs -vv"
+    else
         rsyncArgs="$rsyncArgs -v"
     fi
     rsyncArgs="$rsyncArgs --log-file=${LOG_FILE}"
     targetExpanded=$(realpath $target) 
     rsyncCommand="rsync $rsyncArgs $sourceExpanded $targetExpanded"
     echo "rsyncCommand: $rsyncCommand"
+
+    eval "${rsyncCommand}"
   done
+
+  echo "Log file: $LOG_FILE"
