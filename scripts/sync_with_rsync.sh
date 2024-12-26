@@ -37,7 +37,7 @@ while read -r source target delete exclude; do
     if [[ "$exclude" != "" ]]; then
         rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
     fi
-    if [[ "$source" == *\** ]]; then
+    if [ ! -z "$source" ]; then
         sourceExpanded=$source
     else
         sourceExpanded=$(realpath $source)
