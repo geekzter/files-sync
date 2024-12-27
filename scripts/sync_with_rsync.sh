@@ -41,7 +41,7 @@ while read -r source target delete exclude; do
     if  [[ "$source" == *\** ]]; then
         sourceExpanded=$source
     else
-        sourceExpanded=$(realpath $source)
+        sourceExpanded="'$(realpath $source)'"
     fi
     if [ $ALLOW_DELETE -eq 1 ] && [ "${delete}" = "1" ]; then
         rsyncArgs="$rsyncArgs --delete"
@@ -55,9 +55,9 @@ while read -r source target delete exclude; do
         rsyncArgs="$rsyncArgs -v"
     fi
     rsyncArgs="$rsyncArgs --log-file=${LOG_FILE}"
-    targetExpanded=$(realpath $target) 
+    targetExpanded="'$(realpath $target)'"
     rsyncCommand="rsync $rsyncArgs $sourceExpanded $targetExpanded"
     echo "rsyncCommand: $rsyncCommand"
 
-    eval "${rsyncCommand}"
+    # eval "${rsyncCommand}"
 done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source) \(.target) \(.delete) \(.exclude)"')
