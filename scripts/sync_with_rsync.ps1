@@ -3,11 +3,11 @@
 .SYNOPSIS 
     Syncs a pre-configured list of directory pairs
 .DESCRIPTION 
-    Update rsync-settings.jsonc or use the FILES_SYNC_RSYNC_SETTINGS environment variable to point to a settings file in an alternate location
+    Update rsync-settings.json or use the FILES_SYNC_RSYNC_SETTINGS environment variable to point to a settings file in an alternate location
 #>
 #Requires -Version 7.2
 param ( 
-    [parameter(Mandatory=$false)][string]$SettingsFile=$env:FILES_SYNC_RSYNC_SETTINGS ?? (Join-Path $PSScriptRoot rsync-settings.jsonc),
+    [parameter(Mandatory=$false)][string]$SettingsFile=$env:FILES_SYNC_RSYNC_SETTINGS ?? (Join-Path $PSScriptRoot rsync-settings.json),
     [parameter(Mandatory=$false)][switch]$AllowDelete,
     [parameter(Mandatory=$false)][switch]$DryRun
 ) 

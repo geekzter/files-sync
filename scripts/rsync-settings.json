@@ -1,8 +1,4 @@
 {
-    /*
-    This is en example, configure to your own needs
-    You can store this file in an alternate location and point to it using the FILES_SYNC_RSYNC_SETTINGS environment variable
-    */
     "syncPairs" : [
         {
             "source": "~/.??*",
