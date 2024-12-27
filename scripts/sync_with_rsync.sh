@@ -64,4 +64,3 @@ while IFS=$'\t' read -r source target delete exclude; do
 
     eval "${rsyncCommand}"
 done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source)\t\(.target)\t\(.delete)\t\(.exclude)"')
-# done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source)\t\(.target)\t\(.delete)\t\(.exclude)"')
