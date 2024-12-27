@@ -31,9 +31,12 @@ echo "Dry run: $DRY_RUN"
 echo "Settings file: $FILES_SYNC_RSYNC_SETTINGS"
 echo "Log file: $LOG_FILE"
 
-while read -r source target delete exclude; do
+while IFS=$'\t' read -r source target delete exclude; do
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
     echo "$source -> $target" 
+    echo "source: $source"
+    echo "target: $target"
+    echo "delete: $delete"
     echo "exclude: $exclude"
     if [ -n "$exclude" ] && [ "$exclude" != "null" ]; then
         rsyncArgs="$rsyncArgs $(echo $exclude | jq -r '.[]' | while read -r line; do echo -n " --exclude=$line"; done)"
@@ -41,7 +44,7 @@ while read -r source target delete exclude; do
     if  [[ "$source" == *\** ]]; then
         sourceExpanded=$source
     else
-        sourceExpanded="'$(realpath $source)'"
+        sourceExpanded="'$(realpath "$source")'"
     fi
     if [ $ALLOW_DELETE -eq 1 ] && [ "${delete}" = "1" ]; then
         rsyncArgs="$rsyncArgs --delete"
@@ -55,9 +58,10 @@ while read -r source target delete exclude; do
         rsyncArgs="$rsyncArgs -v"
     fi
     rsyncArgs="$rsyncArgs --log-file=${LOG_FILE}"
-    targetExpanded="'$(realpath $target)'"
+    targetExpanded="'$(realpath "$target")'"
     rsyncCommand="rsync $rsyncArgs $sourceExpanded $targetExpanded"
     echo "rsyncCommand: $rsyncCommand"
 
-    # eval "${rsyncCommand}"
-done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source) \(.target) \(.delete) \(.exclude)"')
+    eval "${rsyncCommand}"
+done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source)\t\(.target)\t\(.delete)\t\(.exclude)"')
+# done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source)\t\(.target)\t\(.delete)\t\(.exclude)"')
