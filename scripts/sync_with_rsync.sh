@@ -26,6 +26,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
+echo "--------------------------------------------------------------------"
 echo "Allow delete: $ALLOW_DELETE"
 echo "Dry run: $DRY_RUN"
 echo "Settings file: $FILES_SYNC_RSYNC_SETTINGS"
@@ -33,6 +34,7 @@ echo "Log file: $LOG_FILE"
 
 while IFS=$'\t' read -r source target delete exclude; do
     rsyncArgs="-auz --modify-window=1 --exclude-from=$(dirname $0)/exclude.txt"
+    echo "--------------------------------------------------------------------"
     echo "$source -> $target" 
     echo "source: $source"
     echo "target: $target"
@@ -64,3 +66,5 @@ while IFS=$'\t' read -r source target delete exclude; do
 
     eval "${rsyncCommand}"
 done< <(cat $FILES_SYNC_RSYNC_SETTINGS | jq --raw-output '.syncPairs[] | "\(.source)\t\(.target)\t\(.delete)\t\(.exclude)"')
+echo "--------------------------------------------------------------------"
+echo "Log file: $LOG_FILE"
