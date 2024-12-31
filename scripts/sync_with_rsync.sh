@@ -62,7 +62,6 @@ while IFS=$'\t' read -r source target delete exclude; do
     fi
     rsyncArgs="$rsyncArgs --log-file=${LOG_FILE}"
     targetExpanded="'$(realpath "$target")'"
-    targetExpanded="${targetExpanded%/}/"
     rsyncCommand="rsync $rsyncArgs $sourceExpanded $targetExpanded"
     echo "rsyncCommand: $rsyncCommand"
 
