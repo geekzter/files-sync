@@ -395,12 +395,14 @@ function Get-AzCopyPackageUrl (
     # Package may have released on the next day, so we need to check both
     foreach ($actualReleaseDate in ($releaseDate, $releaseDate.AddDays(1))) {
         try {
-            "https://azcopyvnext.azureedge.net/releases/release-{0}-{1}/azcopy_{2}_{3}_{0}.{4}" -f $azcopyVersion, `
-                                                                                                   $actualReleaseDate.ToString("yyyyMMdd"),`
-                                                                                                   $os, `
-                                                                                                   $architecture, `
-                                                                                                   $extension `
-                                                                                                 | Set-Variable packageUrl
+            $cdnHost = [System.Net.HttpWebRequest]::Create("https://aka.ms/downloadazcopy-v10-linux").GetResponse().ResponseUri.DnsSafeHost
+            "https://{0}/releases/release-{1}-{2}/azcopy_{3}_{4}_{1}.{5}" -f $cdnHost, `
+                                                                             $azcopyVersion, `
+                                                                             $actualReleaseDate.ToString("yyyyMMdd"),`
+                                                                             $os, `
+                                                                             $architecture, `
+                                                                             $extension `
+                                                                           | Set-Variable packageUrl
 
             Write-Verbose "Validating whether package exists at '${packageUrl}'..."
             Invoke-WebRequest -Method HEAD `
