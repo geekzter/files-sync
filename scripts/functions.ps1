@@ -395,8 +395,8 @@ function Get-AzCopyPackageUrl (
     # Package may have released on the next day, so we need to check both
     foreach ($actualReleaseDate in ($releaseDate, $releaseDate.AddDays(1))) {
         try {
-            $host = [System.Net.HttpWebRequest]::Create("https://aka.ms/downloadazcopy-v10-linux").GetResponse().ResponseUri.DnsSafeHost
-            "https://{0}/releases/release-{1}-{2}/azcopy_{3}_{4}_{1}.{5}" -f $host, `
+            $cdnHost = [System.Net.HttpWebRequest]::Create("https://aka.ms/downloadazcopy-v10-linux").GetResponse().ResponseUri.DnsSafeHost
+            "https://{0}/releases/release-{1}-{2}/azcopy_{3}_{4}_{1}.{5}" -f $cdnHost, `
                                                                              $azcopyVersion, `
                                                                              $actualReleaseDate.ToString("yyyyMMdd"),`
                                                                              $os, `
