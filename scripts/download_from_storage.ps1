@@ -2,16 +2,23 @@
 <#
 .SYNOPSIS 
     Download from Azure storage account
+.EXAMPLE
+    ./download_from_storage.ps1 -Source "https://mediabackup.blob.core.windows.net/photos/*" `
+                                -Destination /Volumes/Photography/Photos/ `
+                                -MaxMbps 256 `
+                                -UseSasToken
 #>
 #Requires -Version 7.2
 param ( 
     [parameter(Mandatory=$true)][string]$Source,
     [parameter(Mandatory=$true)][string]$Destination,
+    [parameter(Mandatory=$false)][switch]$Overwrite,
     [parameter(Mandatory=$false)][switch]$DryRun,
     [parameter(Mandatory=$false,ParameterSetName="Sas",HelpMessage="Use SAS token instead of Azure RBAC")][switch]$UseSasToken=$false,
     [parameter(Mandatory=$false,ParameterSetName="Sas")][int]$SasTokenValidityDays=7,
-    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID) 
-
+    [parameter(Mandatory=$false)][string]$TenantId=$env:AZCOPY_TENANT_ID,
+    [parameter(Mandatory=$false)][int]$MaxMbps=0
+)
 Write-Debug $MyInvocation.line
 
 . (Join-Path $PSScriptRoot functions.ps1)
@@ -65,15 +72,25 @@ Open-Firewall -StorageAccountName $storageAccountName `
               -SubscriptionId $storageAccount.subscriptionId
 
 # Data plane access
-$azcopyArgs = "--recursive --log-level $(Get-AzCopyLogLevel) --overwrite prompt"
+$azcopyArgs = "--recursive --log-level $(Get-AzCopyLogLevel)"
 if ($DryRun) {
     $azcopyArgs += " --dry-run"
+}
+if ($MaxMbps -gt 0) {
+    $azcopyArgs += " --cap-mbps $MaxMbps"
+}
+if ($Overwrite) {
+    $azcopyArgs += " --overwrite ifSourceNewer"
+} else {
+    $azcopyArgs += " --overwrite false"
 }
 
 $azCopySource = $UseSasToken ? "${Source}?${storageAccountToken}" : "${Source}"
 $Destination = (Resolve-Path $Destination).Path
 $previousJobId = Get-AzCopyLatestJobId # Get latest Job ID, so we can detect whether a job was created later
 $azcopyCommand = "azcopy copy '$azCopySource' '$Destination' $azcopyArgs"
+Write-Debug "azcopy command: $azcopyCommand"
+
 $backOffMessage = "azcopy command '$azcopyCommand' did not execute (could not find azcopy job ID)"
 do {
     Wait-BackOff

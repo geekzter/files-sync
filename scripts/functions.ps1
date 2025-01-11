@@ -58,11 +58,10 @@ function Open-Firewall (
                                                 --subscription $SubscriptionId `
                                                 -o none
             Write-Information "Added firewall rule to allow '$ipAddress' on storage account '$StorageAccountName'"
+            Write-Host "Waiting $WaitToPropagateSeconds seconds for firewall rules update to reflect..."
+            Start-Sleep -Seconds $WaitToPropagateSeconds
         }    
     }
-
-    Write-Host "Waiting $WaitToPropagateSeconds seconds for firewall rules update to reflect..."
-    Start-Sleep -Seconds $WaitToPropagateSeconds
 }
 
 function Build-AzCopyArgs (
