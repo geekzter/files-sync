@@ -96,7 +96,7 @@ jobs:
     - name: List environment variables
       run: | 
         # List environment variables
-        Get-ChildItem -Path Env: -Recurse -Include AZCOPY_*,AZURE_*,FILES_SYNC_*,*TEMP*,*TMP* | Sort-Object -Property Name
+        Get-ChildItem -Path Env: -Recurse -Include ACTIONS_*,AZCOPY_*,AZURE_*,FILES_SYNC_*,GH_*,GITHUB_*,*TEMP*,*TMP* | Sort-Object -Property Name
         Get-ChildItem -Path Env: -Recurse -Include * | Sort-Object -Property Name
       shell: pwsh
 
