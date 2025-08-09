@@ -60,11 +60,6 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v2
 
-    - name: Test aks.ms direct download
-      run: | 
-        wget -O azcopy_v10.tar.gz https://aka.ms/downloadazcopy-v10-linux && tar -xf azcopy_v10.tar.gz --strip-components=1
-      shell: bash
-
     - name: Install AzCopy
       run: | 
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
