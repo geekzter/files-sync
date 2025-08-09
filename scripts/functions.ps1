@@ -337,10 +337,8 @@ function Get-AzCopyPackageUrl (
     [string]
     $Token=$env:GH_TOKEN
 ) {
-    # $requestHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
     if ($Token) {
         Write-Debug "Using GitHub token"
-        # $requestHeaders["X-GitHub-Token"] = $Token
         $requestHeaders = @{Authorization = "Bearer ${Token}"}
     } else {
         Write-Debug "GH_TOKEN not set, not using a token"
@@ -411,8 +409,16 @@ function Get-AzCopyPackageUrl (
                                                                              $extension `
                                                                            | Set-Variable packageUrl
 
+            if ($cdnHost -match "github") {
+                Write-Debug "${cdnHost} requires GitHub token"
+                $cdnRequestHeaders = $requestHeaders
+            } else {
+                $cdnRequestHeaders = @{}
+            }
             Write-Verbose "Validating whether package exists at '${packageUrl}'..."
-            Invoke-WebRequest -Method HEAD `
+            # Use HEAD request to check if the package exists
+            Invoke-WebRequest -Headers $cdnRequestHeaders `
+                              -Method HEAD `
                               -PreserveHttpMethodOnRedirect `
                               -Uri $packageUrl `
                               | Set-Variable packageResponse
