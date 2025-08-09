@@ -17,6 +17,9 @@ on:
   - cron:  '0 3 * * *'
   workflow_dispatch:
 
+env:
+  ACTIONS_STEP_DEBUG: ${{ vars.ACTIONS_STEP_DEBUG }}
+  
 jobs:
   install_azcopy:
     defaults:
