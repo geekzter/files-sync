@@ -337,7 +337,13 @@ function Get-AzCopyPackageUrl (
     [string]
     $Token=$env:GH_TOKEN
 ) {
-    $requestHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
+    if ($Token) {
+        Write-Debug "Using GitHub token"
+        $requestHeaders = @{Authorization = "Bearer ${Token}"}
+    } else {
+        Write-Debug "GH_TOKEN not set, not using a token"
+        $requestHeaders = @{}
+    }
     (Invoke-RestMethod -Headers $requestHeaders `
                        -Method Get `
                        -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
@@ -391,40 +397,37 @@ function Get-AzCopyPackageUrl (
         $extension = "tar.gz"
     }
     
-    # Package may have released on the next day, so we need to check both
-    foreach ($actualReleaseDate in ($releaseDate, $releaseDate.AddDays(1))) {
-        try {
-            $cdnHost = [System.Net.HttpWebRequest]::Create("https://aka.ms/downloadazcopy-v10-linux").GetResponse().ResponseUri.DnsSafeHost
-            "https://{0}/releases/release-{1}-{2}/azcopy_{3}_{4}_{1}.{5}" -f $cdnHost, `
-                                                                             $azcopyVersion, `
-                                                                             $actualReleaseDate.ToString("yyyyMMdd"),`
-                                                                             $os, `
-                                                                             $architecture, `
-                                                                             $extension `
-                                                                           | Set-Variable packageUrl
+    try {
+        #  https://github.com/Azure/azure-storage-azcopy/releases/download/v10.30.0/azcopy_linux_amd64_10.30.0.tar.gz
+        "https://github.com/Azure/azure-storage-azcopy/releases/download/v{0}/azcopy_{1}_{2}_{0}.{3}" -f $azcopyVersion, `
+                                                                                                         $os, `
+                                                                                                         $architecture, `
+                                                                                                         $extension `
+                                                                                                        | Set-Variable packageUrl
 
-            Write-Verbose "Validating whether package exists at '${packageUrl}'..."
-            Invoke-WebRequest -Method HEAD `
-                              -PreserveHttpMethodOnRedirect `
-                              -Uri $packageUrl `
-                              | Set-Variable packageResponse
-            Write-Verbose "Package ${packageUrl} found"
-            $packageResponse | Format-List | Out-String | Write-Debug
-            "AzCopy package version {0} for {1} ({2}):`n{3}" -f $azcopyVersion, `
-                                                                $os, `
-                                                                $architecture, `
-                                                                $packageUrl `
-                                                             | Write-Verbose
+        Write-Verbose "Validating whether package exists at '${packageUrl}'..."
+        # Use HEAD request to check if the package exists
+        Invoke-WebRequest -Headers $cdnRequestHeaders `
+                          -Method HEAD `
+                          -PreserveHttpMethodOnRedirect `
+                          -Uri $packageUrl `
+                         | Set-Variable packageResponse
+        Write-Verbose "Package ${packageUrl} found"
+        $packageResponse | Format-List | Out-String | Write-Debug
+        "AzCopy package version {0} for {1} ({2}):`n{3}" -f $azcopyVersion, `
+                                                            $os, `
+                                                            $architecture, `
+                                                            $packageUrl `
+                                                            | Write-Verbose
 
-            break
-        } catch {
-            if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
-                Write-Warning "Package ${packageUrl} not found on $($actualReleaseDate.ToString("yyyyMMdd"))"
-                continue
-            }
-            else {
-                throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
-            }
+        break
+    } catch {
+        if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotFound) {
+            Write-Warning "Package ${packageUrl} not found on $($actualReleaseDate.ToString("yyyyMMdd"))"
+            continue
+        }
+        else {
+            throw "Could not access agent package for ${os} ${Version}: ${packageUrl}`n$($_.Exception.Message)"
         }
     }
     if (!$packageUrl) {
