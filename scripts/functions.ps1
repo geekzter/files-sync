@@ -409,6 +409,13 @@ function Get-AzCopyPackageUrl (
                                                                              $extension `
                                                                            | Set-Variable packageUrl
 
+            #  https://github.com/Azure/azure-storage-azcopy/releases/download/v10.30.0/azcopy_linux_amd64_10.30.0.tar.gz
+            "https://github.com/Azure/azure-storage-azcopy/releases/download/v{0}/azcopy_{1}_{2}_{0}.{3}" -f $azcopyVersion, `
+                                                                                                             $os, `
+                                                                                                             $architecture, `
+                                                                                                             $extension `
+                                                                                                           | Set-Variable packageUrl
+
             if ($cdnHost -match "github") {
                 Write-Debug "${cdnHost} requires GitHub token"
                 $cdnRequestHeaders = $requestHeaders
