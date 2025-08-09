@@ -416,13 +416,13 @@ function Get-AzCopyPackageUrl (
                                                                                                              $extension `
                                                                                                            | Set-Variable packageUrl
 
-            if ($cdnHost -match "github") {
-                Write-Debug "${cdnHost} requires GitHub token"
-                $cdnRequestHeaders = $requestHeaders
-                $cdnRequestHeaders["X-GitHub-Token"] = $Token
-            } else {
-                $cdnRequestHeaders = @{}
-            }
+            # if ($cdnHost -match "github") {
+            #     Write-Debug "${cdnHost} requires GitHub token"
+            #     $cdnRequestHeaders = $requestHeaders
+            #     $cdnRequestHeaders["X-GitHub-Token"] = $Token
+            # } else {
+            #     $cdnRequestHeaders = @{}
+            # }
             Write-Verbose "Validating whether package exists at '${packageUrl}'..."
             # Use HEAD request to check if the package exists
             Invoke-WebRequest -Headers $cdnRequestHeaders `
