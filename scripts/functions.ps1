@@ -412,6 +412,7 @@ function Get-AzCopyPackageUrl (
             if ($cdnHost -match "github") {
                 Write-Debug "${cdnHost} requires GitHub token"
                 $cdnRequestHeaders = $requestHeaders
+                $cdnRequestHeaders["X-GitHub-Token"] = $Token
             } else {
                 $cdnRequestHeaders = @{}
             }
