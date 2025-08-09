@@ -39,8 +39,8 @@ jobs:
 
     - name: install_azcopy.ps1
       run: | 
-        Get-ChildItem -Path Env: -Recurse -Include ACTIONS_*,AZCOPY_*,AZURE_*,FILES_SYNC_*,GH_*,GITHUB_*,*TEMP*,*TMP* | Sort-Object -Property Name
         if ($env:ACTIONS_STEP_DEBUG -ieq "true") {
+          Get-ChildItem -Path Env: -Recurse -Include ACTIONS_*,AZCOPY_*,AZURE_*,FILES_SYNC_*,GH_*,GITHUB_*,*TEMP*,*TMP* | Sort-Object -Property Name
           $InformationPreference = "Continue"
           $VerbosePreference = "Continue"
           $DebugPreference = "Continue"

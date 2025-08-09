@@ -38,6 +38,7 @@ on:
         - windows-latest
 
 env:
+  ACTIONS_STEP_DEBUG: ${{ vars.ACTIONS_STEP_DEBUG }}
   AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
   AZURE_DEFAULTS_LOCATION: westeurope
