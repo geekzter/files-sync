@@ -337,7 +337,15 @@ function Get-AzCopyPackageUrl (
     [string]
     $Token=$env:GH_TOKEN
 ) {
-    $requestHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
+    # $requestHeaders = $Token ? @{Authorization = "Bearer ${Token}"} : @{}
+    if ($Token) {
+        Write-Debug "Using GitHub token"
+        # $requestHeaders["X-GitHub-Token"] = $Token
+        $requestHeaders = @{Authorization = "Bearer ${Token}"}
+    } else {
+        Write-Debug "GH_TOKEN not set, not using a token"
+        $requestHeaders = @{}
+    }
     (Invoke-RestMethod -Headers $requestHeaders `
                        -Method Get `
                        -Uri https://api.github.com/repos/azure/azure-storage-azcopy/releases) `
